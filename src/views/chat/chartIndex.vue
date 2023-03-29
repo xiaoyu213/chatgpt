@@ -2,25 +2,13 @@
   <div class="chatPage">
     <div class="sildeLeft">
       <div class="chatHistoryList">
-        <div class="chatHistoryItem">
+        <div
+          class="chatHistoryItem"
+          v-for="item in historyList"
+          :key="item.time"
+        >
           <i class="iconfont icon-jichuxinxiguanli"></i>
-          <div class="title">聊天历史记录聊天历史记录1</div>
-          <div class="editMenu">
-            <i class="iconfont icon-bianji"></i>
-            <i class="iconfont icon-shanchu"></i>
-          </div>
-        </div>
-        <div class="chatHistoryItem">
-          <i class="iconfont icon-jichuxinxiguanli"></i>
-          <div class="title">聊天历史记录聊天历史记录1</div>
-          <div class="editMenu">
-            <i class="iconfont icon-bianji"></i>
-            <i class="iconfont icon-shanchu"></i>
-          </div>
-        </div>
-        <div class="chatHistoryItem">
-          <i class="iconfont icon-jichuxinxiguanli"></i>
-          <div class="title">聊天历史记录聊天历史记录1</div>
+          <div class="title">{{ item.name }}</div>
           <div class="editMenu">
             <i class="iconfont icon-bianji"></i>
             <i class="iconfont icon-shanchu"></i>
@@ -48,104 +36,20 @@
     </div>
     <div class="chatCon">
       <div class="chatMessageList">
-        <div class="messageItem right">
+        <div
+          class="messageItem"
+          v-for="(item, index) in messageList"
+          :class="[item.role == 'user' ? 'right' : 'left']"
+          :key="index"
+        >
           <div class="messageItemAvtar">
             <img
               src="https://foruda.gitee.com/avatar/1676969986653436463/1460456_xiaoyu213_1618720174.png!avatar200"
             />
           </div>
           <div class="messageDetail">
-            <div class="date">2023/3/29 13:56:26</div>
-            <div class="messageDetailText">请问你怎么看</div>
-          </div>
-        </div>
-        <div class="messageItem left">
-          <div class="messageItemAvtar">
-            <img
-              src="https://foruda.gitee.com/avatar/1676969986653436463/1460456_xiaoyu213_1618720174.png!avatar200"
-            />
-          </div>
-          <div class="messageDetail">
-            <div class="date">2023/3/29 13:56:26</div>
-            <div class="messageDetailText">
-              {{ VueMarkdownData }}
-              <!--              <v-md-preview :text="VueMarkdownData"></v-md-preview>-->
-            </div>
-          </div>
-        </div>
-        <div class="messageItem right">
-          <div class="messageItemAvtar">
-            <img
-              src="https://foruda.gitee.com/avatar/1676969986653436463/1460456_xiaoyu213_1618720174.png!avatar200"
-            />
-          </div>
-          <div class="messageDetail">
-            <div class="date">2023/3/29 13:56:26</div>
-            <div class="messageDetailText">请问你怎么看</div>
-          </div>
-        </div>
-        <div class="messageItem left">
-          <div class="messageItemAvtar">
-            <img
-              src="https://foruda.gitee.com/avatar/1676969986653436463/1460456_xiaoyu213_1618720174.png!avatar200"
-            />
-          </div>
-          <div class="messageDetail">
-            <div class="date">2023/3/29 13:56:26</div>
-            <div class="messageDetailText">
-              {{ VueMarkdownData }}
-              <!--              <v-md-preview :text="VueMarkdownData"></v-md-preview>-->
-            </div>
-          </div>
-        </div>
-        <div class="messageItem right">
-          <div class="messageItemAvtar">
-            <img
-              src="https://foruda.gitee.com/avatar/1676969986653436463/1460456_xiaoyu213_1618720174.png!avatar200"
-            />
-          </div>
-          <div class="messageDetail">
-            <div class="date">2023/3/29 13:56:26</div>
-            <div class="messageDetailText">请问你怎么看</div>
-          </div>
-        </div>
-        <div class="messageItem left">
-          <div class="messageItemAvtar">
-            <img
-              src="https://foruda.gitee.com/avatar/1676969986653436463/1460456_xiaoyu213_1618720174.png!avatar200"
-            />
-          </div>
-          <div class="messageDetail">
-            <div class="date">2023/3/29 13:56:26</div>
-            <div class="messageDetailText">
-              {{ VueMarkdownData }}
-              <!--              <v-md-preview :text="VueMarkdownData"></v-md-preview>-->
-            </div>
-          </div>
-        </div>
-        <div class="messageItem right">
-          <div class="messageItemAvtar">
-            <img
-              src="https://foruda.gitee.com/avatar/1676969986653436463/1460456_xiaoyu213_1618720174.png!avatar200"
-            />
-          </div>
-          <div class="messageDetail">
-            <div class="date">2023/3/29 13:56:26</div>
-            <div class="messageDetailText">请问你怎么看</div>
-          </div>
-        </div>
-        <div class="messageItem left">
-          <div class="messageItemAvtar">
-            <img
-              src="https://foruda.gitee.com/avatar/1676969986653436463/1460456_xiaoyu213_1618720174.png!avatar200"
-            />
-          </div>
-          <div class="messageDetail">
-            <div class="date">2023/3/29 13:56:26</div>
-            <div class="messageDetailText">
-              {{ VueMarkdownData }}
-              <!--              <v-md-preview :text="VueMarkdownData"></v-md-preview>-->
-            </div>
+            <div class="date">{{ item.timeStr }}</div>
+            <div class="messageDetailText">{{ item.content }}</div>
           </div>
         </div>
       </div>
@@ -164,7 +68,7 @@
             <textarea placeholder="请输入消息" v-model="sendMessageText" />
           </div>
         </div>
-        <div class="sendBtn">
+        <div class="sendBtn" @click="sendMessage">
           <i class="iconfont icon-fasong"></i>
         </div>
       </div>
@@ -173,8 +77,9 @@
 </template>
 
 <script>
-import VMdPreview from "@kangc/v-md-editor/lib/preview";
-import "@kangc/v-md-editor/lib/style/preview.css";
+import { marked } from "marked";
+import hljs from "highlight.js";
+import "highlight.js/styles/idea.css";
 export default {
   name: "chartIndex",
   components: {
@@ -182,16 +87,116 @@ export default {
   },
   data() {
     return {
-      VueMarkdownData:
-        "您可以使用 `xlsx` 包中提供的 `writeFile` 方法并设置密码选项来创建一个需要密码才能打开的 Excel 文件。\\n\\n以下是一个简单的示例代码：\\n\\n```javascript\\nconst XLSX = require('xlsx');\\nconst workbook = XLSX.utils.book_new();\\n\\n// 创建工作表数据\\nconst data = [['Hello', 'World'], ['OpenAI', 'is', 'awesome']];\\n\\n// 创建工作簿和工作表\\nconst worksheet = XLSX.utils.aoa_to_sheet(data);\\nXLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');\\n\\n// 将工作簿写入文件，其中 password 参数将设置密码保护。\\nXLSX.writeFile(workbook, 'my_excel_file.xlsx', { bookType: 'xlsx', password: 'mypassword' });\\n```\\n\\n在这个例子中，我们首先创建了一个工作表数据，并将其转换为工作表对象。我们然后将工作表添加到新创建的工作簿中，然后使用 `writeFile` 方法将工作簿写入名为 `my_excel_file.xlsx` 的文件。通过将 `password` 选项设置为所需的密码，我们可以使生成的 Excel 文件受到保护，只有在输入正确的密码时才能打开。\\n\\n请注意，使用密码保护的 Excel 文件可能不兼容某些软件或版本，您应该在使用此功能之前进行测试并确保它符合您的需求。\"\n",
+      sendMessageText: "",
+      messageList: [],
+      historyList: [],
     };
   },
-  beforeMount() {
-    // this.otherInit();
+  async mounted() {
+    marked.setOptions({
+      renderer: new marked.Renderer(),
+      highlight: function (code, language) {
+        const validLanguage = hljs.getLanguage(language)
+          ? language
+          : "javascript";
+        return hljs.highlight(code, { language: validLanguage }).value;
+      },
+      langPrefix: "hljs language-",
+      pedantic: false,
+      gfm: true,
+      breaks: false,
+      sanitize: false,
+      smartLists: true,
+      smartypants: false,
+      xhtml: false,
+    });
   },
-  methods: {},
+  methods: {
+    sendMessage() {
+      if (!this.sendMessageText) {
+        // eslint-disable-next-line no-undef
+        ElMessage({
+          message: "请先填写内容",
+          type: "warning",
+        });
+        return;
+      }
+      const pushData = {
+        role: "user",
+        content: this.sendMessageText,
+      };
+      const answerData = {
+        role: "assistant",
+        content: "正在回答中",
+      };
+      this.messageList.push(pushData);
+      this.messageList.push(answerData);
+      this.getAnswer();
+    },
+    async getAnswer() {
+      const abortController = new AbortController();
+      const pushList = this.messageList.slice(0, this.messageList.length - 1);
+      const upIndex = this.messageList.length - 1;
+      try {
+        const response = await fetch("http://localhost:3000/chatNew", {
+          signal: abortController.signal,
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(pushList),
+        });
+        if (!response.ok) {
+          throw new Error(response.statusText);
+        }
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let flag = true;
+        this.messageList[upIndex].content = "";
+        while (flag) {
+          const { value, done } = await reader.read();
+          if (value) {
+            const partialResponse = decoder.decode(value, {
+              stream: true,
+            });
+            console.log(partialResponse);
+            if (partialResponse.indexOf("DONE") >= 0) {
+              const nowData = this.messageList[upIndex].content;
+              this.messageList[upIndex].content =
+                nowData + partialResponse.replace("DONE", "");
+              abortController.abort();
+            } else {
+              const nowData = this.messageList[upIndex].content;
+              this.messageList[upIndex].content = nowData + partialResponse;
+            }
+          }
+          if (done) {
+            flag = false;
+            abortController.abort();
+            break;
+          }
+        }
+      } catch (error) {
+        abortController.abort();
+      }
+    },
+  },
 };
 </script>
+<style lang="scss">
+.backHtmlWrap {
+  white-space: pre-line;
+  p {
+    white-space: pre-line;
+  }
+  code {
+    background: #42b983;
+    display: inline-block;
+    border-radius: 5px;
+    padding: 0 5px;
+    line-height: 26px;
+    white-space: pre-line;
+  }
+}
+</style>
 <style lang="scss" scoped>
 .chatPage {
   background: #101014;
@@ -448,6 +453,7 @@ export default {
         .messageDetail {
           margin-left: 10px;
           width: calc(90% - 40px);
+          text-align: left;
           .date {
             font-size: 16px;
             line-height: 30px;
