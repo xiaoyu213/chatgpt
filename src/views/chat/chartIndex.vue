@@ -138,12 +138,16 @@ export default {
       const pushList = this.messageList.slice(0, this.messageList.length - 1);
       const upIndex = this.messageList.length - 1;
       try {
-        const response = await fetch("http://82.156.167.136/chatNew", {
-          signal: abortController.signal,
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(pushList),
-        });
+        //http://82.156.167.136/chatNew
+        const response = await fetch(
+          "http://82.156.167.136/completionsNormal",
+          {
+            signal: abortController.signal,
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: "你是谁" }),
+          }
+        );
         if (!response.ok) {
           throw new Error(response.statusText);
         }
