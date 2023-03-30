@@ -138,7 +138,7 @@ export default {
       const pushList = this.messageList.slice(0, this.messageList.length - 1);
       const upIndex = this.messageList.length - 1;
       try {
-        const response = await fetch("http://localhost:3000/chatNew", {
+        const response = await fetch("http://82.156.167.136/chatNew", {
           signal: abortController.signal,
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -151,6 +151,7 @@ export default {
         const decoder = new TextDecoder("utf-8");
         let flag = true;
         this.messageList[upIndex].content = "";
+        this.sendMessageText = "";
         while (flag) {
           const { value, done } = await reader.read();
           if (value) {
