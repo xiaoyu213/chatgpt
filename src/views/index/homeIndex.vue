@@ -91,6 +91,7 @@ export default {
     margin-bottom: 20px;
     transform: translate(0px, -60px) rotateX(20deg) rotateZ(-20deg);
     transition: all 1s;
+    text-align: center;
     .iconfont {
       font-size: 60px;
       color: #fff;

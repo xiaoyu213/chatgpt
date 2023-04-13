@@ -65,7 +65,14 @@
         </div>
         <div class="sendMessage">
           <div class="sendMessageText">
-            <textarea placeholder="请输入消息" v-model="sendMessageText" />
+            <el-input
+              v-model="sendMessageText"
+              :rows="1"
+              :autosize="false"
+              type="textarea"
+              resize="none"
+              placeholder="请输入消息"
+            />
           </div>
         </div>
         <div class="sendBtn" @click="sendMessage">
@@ -371,8 +378,8 @@ export default {
     position: relative;
     .chatMessageSend {
       position: absolute;
-      padding-left: 300px;
-      width: calc(100vw - 300px);
+      padding-left: 320px;
+      width: calc(100vw - 320px);
       left: 0;
       bottom: 0;
       display: flex;
@@ -394,23 +401,22 @@ export default {
         }
       }
       .sendMessage {
-        width: calc(80% - 320px);
+        width: calc(100% - 220px);
         height: 60px;
         margin-left: 10px;
         .sendMessageText {
-          width: 100%;
+          width: 98%;
           height: 40px;
           padding: 10px 0;
-          textarea {
-            height: 100%;
-            width: 90%;
+          &:deep(textarea) {
+            height: 40px;
+            width: 100%;
             outline: none;
             resize: none;
-            line-height: 40px;
             font-size: 14px;
+            line-height: 30px;
             color: #333;
             border: none;
-            padding-left: 10px;
             border-radius: 5px;
             font-family: "myFont";
             &::placeholder {
@@ -430,6 +436,11 @@ export default {
         border-radius: 5px;
         margin-top: 10px;
         cursor: pointer;
+        text-align: center;
+        margin-right: 20px;
+        .iconfont {
+          font-size: 25px;
+        }
       }
     }
     .chatMessageList {
