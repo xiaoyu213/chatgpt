@@ -6,11 +6,9 @@
     <div class="homeTitle">欢迎来到YULEI·AI网站</div>
     <div class="homeCon">
       <div class="modelList">
-        <div class="modelItem">
+        <div class="modelItem" @click="goChat">
           <div class="modeLine">
-            <router-link to="/chat"
-              ><i class="iconfont icon-bianji"></i>文本生成</router-link
-            >
+            <i class="iconfont icon-bianji"></i>文本生成
             <div class="line"><span></span></div>
           </div>
         </div>
@@ -54,6 +52,23 @@
     </div>
   </div>
 </template>
+<script>
+export default {
+  name: "homeIndex",
+  data() {
+    return {
+      sendMessageText: "",
+      messageList: [],
+      historyList: [],
+    };
+  },
+  methods: {
+    goChat() {
+      this.$router.push("/chat");
+    },
+  },
+};
+</script>
 <style scoped lang="scss">
 .homePage {
   width: 100%;
@@ -122,6 +137,10 @@
         color: #fff;
         font-family: "myFont";
         cursor: pointer;
+        -webkit-user-select: none; /*webkit浏览器*/
+        -moz-user-select: none; /*火狐*/
+        -ms-user-select: none; /*IE10*/
+        user-select: none;
         a {
           color: #fff;
           text-decoration: none;
