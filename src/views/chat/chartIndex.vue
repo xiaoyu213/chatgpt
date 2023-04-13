@@ -92,11 +92,9 @@ export default {
   async mounted() {
     marked.setOptions({
       renderer: new marked.Renderer(),
-      highlight: function (code, language) {
-        const validLanguage = hljs.getLanguage(language)
-          ? language
-          : "javascript";
-        return hljs.highlight(code, { language: validLanguage }).value;
+      highlight: function (code, lang) {
+        const language = hljs.getLanguage(lang) ? lang : "plaintext";
+        return hljs.highlight(code, { language }).value;
       },
       langPrefix: "hljs language-",
       pedantic: false,
@@ -170,6 +168,7 @@ export default {
               this.messageList[upIndex].contentHtml = marked.parse(
                 nowData + partialResponse.replace("DONE", "")
               );
+              flag = false;
               abortController.abort();
             } else {
               // let codeStart = false;
@@ -179,6 +178,7 @@ export default {
                 nowData + partialResponse
               );
             }
+            console.log(this.messageList[upIndex].content);
           }
           if (done) {
             flag = false;
@@ -196,21 +196,26 @@ export default {
 <style lang="scss">
 .backHtmlWrap {
   white-space: pre-line;
-  padding: 20px 0;
-  p {
-    white-space: pre-line;
+  padding: 30px 0;
+  &:deep(p) {
+    p {
+      white-space: pre-line;
+    }
   }
-  pre {
+  &:deep(pre) {
     background: #282c34;
     color: #fff;
   }
-  code {
+  &:deep(code) {
     background: #42b983;
     display: inline-block;
     border-radius: 5px;
     padding: 0 5px;
     line-height: 26px;
     white-space: pre-line;
+  }
+  &:deep(a) {
+    color: #42b983;
   }
 }
 </style>

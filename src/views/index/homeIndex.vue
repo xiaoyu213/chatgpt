@@ -8,7 +8,9 @@
       <div class="modelList">
         <div class="modelItem">
           <div class="modeLine">
-            <i class="iconfont icon-bianji"></i>文本生成
+            <router-link to="/chat"
+              ><i class="iconfont icon-bianji"></i>文本生成</router-link
+            >
             <div class="line"><span></span></div>
           </div>
         </div>
@@ -120,6 +122,10 @@
         color: #fff;
         font-family: "myFont";
         cursor: pointer;
+        a {
+          color: #fff;
+          text-decoration: none;
+        }
         &:hover {
           .line span {
             width: 100%;
