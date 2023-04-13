@@ -55,13 +55,6 @@
 <script>
 export default {
   name: "homeIndex",
-  data() {
-    return {
-      sendMessageText: "",
-      messageList: [],
-      historyList: [],
-    };
-  },
   methods: {
     goChat() {
       this.$router.push("/chat");
@@ -121,6 +114,10 @@ export default {
     transform: translate(0px, -160px) rotateX(20deg) rotateZ(-20deg);
     z-index: 2;
     transition: all 1s;
+    -webkit-user-select: none; /*webkit浏览器*/
+    -moz-user-select: none; /*火狐*/
+    -ms-user-select: none; /*IE10*/
+    user-select: none;
     .modelList {
       width: 70%;
       padding: 30px;
