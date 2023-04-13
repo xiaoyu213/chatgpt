@@ -49,7 +49,7 @@
           </div>
           <div class="messageDetail">
             <div class="date">{{ item.timeStr }}</div>
-            <div class="messageDetailText">{{ item.content }}</div>
+            <div class="messageDetailText" v-html="item.contentHtml"></div>
           </div>
         </div>
       </div>
@@ -82,9 +82,6 @@ import hljs from "highlight.js";
 import "highlight.js/styles/idea.css";
 export default {
   name: "chartIndex",
-  components: {
-    // VMdPreview, // 注入组件
-  },
   data() {
     return {
       sendMessageText: "",
@@ -107,8 +104,8 @@ export default {
       breaks: false,
       sanitize: false,
       smartLists: true,
-      smartypants: false,
-      xhtml: false,
+      smartypants: true,
+      xhtml: true,
     });
   },
   methods: {
@@ -124,10 +121,12 @@ export default {
       const pushData = {
         role: "user",
         content: this.sendMessageText,
+        contentHtml: marked.parse(this.sendMessageText),
       };
       const answerData = {
         role: "assistant",
-        content: "正在回答中",
+        content: "正在回答中...",
+        contentHtml: "正在回答中...",
       };
       this.messageList.push(pushData);
       this.messageList.push(answerData);
@@ -135,19 +134,21 @@ export default {
     },
     async getAnswer() {
       const abortController = new AbortController();
-      const pushList = this.messageList.slice(0, this.messageList.length - 1);
+      const pushList = JSON.parse(
+        JSON.stringify(this.messageList.slice(0, this.messageList.length - 1))
+      );
+      pushList.forEach((item) => {
+        delete item["contentHtml"];
+      });
       const upIndex = this.messageList.length - 1;
       try {
         //http://82.156.167.136/chatNew
-        const response = await fetch(
-          "http://82.156.167.136/completionsNormal",
-          {
-            signal: abortController.signal,
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: "你是谁" }),
-          }
-        );
+        const response = await fetch("http://82.156.167.136/chatNew", {
+          signal: abortController.signal,
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(pushList),
+        });
         if (!response.ok) {
           throw new Error(response.statusText);
         }
@@ -162,15 +163,21 @@ export default {
             const partialResponse = decoder.decode(value, {
               stream: true,
             });
-            console.log(partialResponse);
             if (partialResponse.indexOf("DONE") >= 0) {
               const nowData = this.messageList[upIndex].content;
               this.messageList[upIndex].content =
                 nowData + partialResponse.replace("DONE", "");
+              this.messageList[upIndex].contentHtml = marked.parse(
+                nowData + partialResponse.replace("DONE", "")
+              );
               abortController.abort();
             } else {
+              // let codeStart = false;
               const nowData = this.messageList[upIndex].content;
               this.messageList[upIndex].content = nowData + partialResponse;
+              this.messageList[upIndex].contentHtml = marked.parse(
+                nowData + partialResponse
+              );
             }
           }
           if (done) {
@@ -189,8 +196,13 @@ export default {
 <style lang="scss">
 .backHtmlWrap {
   white-space: pre-line;
+  padding: 20px 0;
   p {
     white-space: pre-line;
+  }
+  pre {
+    background: #282c34;
+    color: #fff;
   }
   code {
     background: #42b983;
@@ -394,9 +406,12 @@ export default {
             color: #333;
             border: none;
             padding-left: 10px;
+            border-radius: 5px;
+            font-family: "myFont";
             &::placeholder {
               font-size: 14px;
               color: #333;
+              font-family: "myFont";
             }
           }
         }
@@ -407,7 +422,7 @@ export default {
         color: #fff;
         height: 40px;
         line-height: 40px;
-        border-radius: 10px;
+        border-radius: 5px;
         margin-top: 10px;
         cursor: pointer;
       }
