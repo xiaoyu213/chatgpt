@@ -9,6 +9,9 @@ module.exports = {
     "@vue/typescript/recommended",
     "plugin:prettier/recommended",
   ],
+  globals: {
+    ElMessage: true,
+  },
   parserOptions: {
     ecmaVersion: 2020,
   },

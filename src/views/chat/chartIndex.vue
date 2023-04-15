@@ -36,7 +36,7 @@
     </div>
     <div class="chatCon" ref="chat">
       <div class="chatMessageList">
-        <el-scrollbar :height="initHeight" ref="scrollbarRef">
+        <el-scrollbar :height="initHeight" ref="scrollbarRef" id="chatListWrap">
           <div
             class="messageItem"
             v-for="(item, index) in messageList"
@@ -50,9 +50,29 @@
             </div>
             <div class="messageDetail">
               <div class="date">{{ item.timeStr }}</div>
-              <div class="messageDetailText" v-html="item.contentHtml"></div>
+              <div
+                class="messageDetailText"
+                :id="'messageItem_' + index"
+                v-html="item.contentHtml"
+              ></div>
               <div class="status" v-if="item.role != 'user'">
-                {{ item.status ? "回答已完成" : "正在回答中" }}
+                <div class="statusItem">
+                  {{ item.status ? "回答已完成" : "正在回答中" }}
+                </div>
+                <div
+                  class="statusItem copyItem"
+                  v-if="item.status"
+                  @click.prevent="copyAllAnswer(index)"
+                >
+                  复制答案
+                </div>
+                <div
+                  class="statusItem"
+                  v-if="item.status"
+                  @click.prevent="downloadAllAnswer(index)"
+                >
+                  保存为图片
+                </div>
               </div>
             </div>
           </div>
@@ -63,7 +83,7 @@
         <div class="iconBtn deleteBtn">
           <i class="iconfont icon-shanchu"></i>
         </div>
-        <div class="iconBtn saveBtn">
+        <div class="iconBtn saveBtn" @click="saveChat">
           <i class="iconfont icon-daochu"></i>
         </div>
         <div class="iconBtn triggerBtn">
@@ -86,6 +106,30 @@
         </div>
       </div>
     </div>
+    <div class="saveMessageListWrap" v-if="saveMessageListWrap">
+      <div class="saveMessageCon">
+        <div class="chatMessageList" id="saveChatMessageList">
+          <div
+            class="messageItem left"
+            v-for="(item, index) in messageList"
+            :key="index"
+          >
+            <div class="messageItemAvtar">
+              <img src="./../../assets/1460456_xiaoyu213_1618720174.png" />
+            </div>
+            <div class="messageDetail">
+              <div class="date">{{ item.timeStr }}</div>
+              <div class="messageDetailText" v-html="item.contentHtml"></div>
+              <div class="status" v-if="item.role != 'user'">
+                <div class="statusItem">
+                  {{ item.status ? "回答已完成" : "正在回答中" }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -96,6 +140,7 @@ import "highlight.js/styles/dark.css";
 import "highlight.js/styles/github-dark.css";
 import { parseTime } from "@/utils/date";
 import Clipboard from "clipboard";
+import html2canvas from "html2canvas";
 export default {
   name: "chartIndex",
   data() {
@@ -105,6 +150,7 @@ export default {
       historyList: [],
       initHeight: 0,
       scrollbar: null,
+      saveMessageListWrap: false,
     };
   },
   async mounted() {
@@ -190,9 +236,16 @@ export default {
           const languageTypeSpanNew = document.createElement("span");
           languageTypeSpanNew.className = "languageTypeSpanNew";
           languageTypeSpanNew.textContent = languageType;
+
+          // 创建“保存为图片”按钮元素
+          const downloadBtn = document.createElement("span");
+          downloadBtn.className = "download-btn";
+          downloadBtn.textContent = "保存为图片";
+
           const div = document.createElement("div");
           div.className = "code-block";
           block.parentNode.insertBefore(div, block);
+          div.appendChild(downloadBtn);
           div.appendChild(copyBtn);
           div.appendChild(languageTypeSpanNew);
           div.appendChild(block);
@@ -200,7 +253,7 @@ export default {
             const text = block.innerText;
             const clipboard = new Clipboard(e.target, { text: () => text });
             clipboard.on("success", (e) => {
-              console.log("复制成功");
+              ElMessage.success("复制成功");
               // 释放内存
               clipboard.off("error");
               clipboard.off("success");
@@ -208,14 +261,51 @@ export default {
             });
             clipboard.on("error", (e) => {
               // 释放内存
+              ElMessage.success("复制失败");
               clipboard.off("error");
               clipboard.off("success");
               clipboard.destroy();
             });
             clipboard.onClick(e);
           });
+          downloadBtn.addEventListener("click", (e) => {
+            this.creatImg(block);
+          });
         }
       });
+    },
+    copyAllAnswer(index) {
+      const text = this.messageList[index].content;
+      const clipboard = new Clipboard(event.target, { text: () => text });
+      clipboard.on("success", (e) => {
+        ElMessage.success("复制成功");
+        // 释放内存
+        clipboard.off("error");
+        clipboard.off("success");
+        clipboard.destroy();
+      });
+      clipboard.on("error", (e) => {
+        // 释放内存
+        ElMessage.success("复制失败");
+        clipboard.off("error");
+        clipboard.off("success");
+        clipboard.destroy();
+      });
+      // eslint-disable-next-line no-undef
+      clipboard.onClick(event);
+    },
+    saveChat() {
+      this.saveMessageListWrap = true;
+      this.$nextTick(() => {
+        const nowDom = document.getElementById(`saveChatMessageList`);
+        this.creatImg(nowDom, () => {
+          this.saveMessageListWrap = false;
+        });
+      });
+    },
+    downloadAllAnswer(index) {
+      const nowDom = document.getElementById(`messageItem_${index}`);
+      this.creatImg(nowDom);
     },
     resizeInit() {
       this.$nextTick(() => {
@@ -304,6 +394,27 @@ export default {
         abortController.abort();
       }
     },
+    // 生成图片
+    creatImg(domRef, fn) {
+      const setup = {
+        useCORS: true, // 使用跨域
+      };
+      html2canvas(domRef, setup).then((canvas) => {
+        const link = canvas.toDataURL("image/jpg");
+        this.exportPicture(link, "文件名", fn);
+      });
+    },
+    // 导出图片
+    exportPicture(link, name = "未命名文件", fn) {
+      const file = document.createElement("a");
+      file.style.display = "none";
+      file.href = link;
+      file.download = decodeURI(name);
+      document.body.appendChild(file);
+      file.click();
+      document.body.removeChild(file);
+      fn && fn();
+    },
   },
   beforeUnmount() {
     window.removeEventListener("resize", this.scrollDown);
@@ -344,6 +455,11 @@ export default {
     overflow: hidden;
     code {
       padding-top: 30px !important;
+      padding: 30px;
+      &.hljs {
+        padding-top: 30px !important;
+        padding: 0;
+      }
     }
   }
   .copy-btn {
@@ -363,12 +479,29 @@ export default {
       color: #42b983 !important;
     }
   }
+  .download-btn {
+    font-size: 12px !important;
+    line-height: 12px !important;
+    display: inline-block !important;
+    position: absolute !important;
+    right: 70px !important;
+    top: 10px !important;
+    color: #fff !important;
+    background: none !important;
+    outline: none;
+    box-shadow: none;
+    z-index: 222;
+    cursor: pointer;
+    &:hover {
+      color: #42b983 !important;
+    }
+  }
   .languageTypeSpanNew {
     font-size: 12px !important;
     line-height: 12px !important;
     display: inline-block !important;
     position: absolute !important;
-    right: 100px !important;
+    right: 150px !important;
     top: 10px !important;
     color: #fff !important;
     background: none !important;
@@ -522,6 +655,7 @@ export default {
     }
   }
   .chatCon {
+    background: #101014;
     width: calc(100vw - 300px);
     height: 100%;
     padding-left: 300px;
@@ -616,9 +750,6 @@ export default {
             .date {
               text-align: right;
             }
-            .status {
-              text-align: right;
-            }
           }
         }
         .messageItemAvtar {
@@ -657,9 +788,100 @@ export default {
             font-size: 14px;
             line-height: 20px;
             color: #d9d9d9;
-            text-align: left;
             padding-left: 10px;
             padding-top: 5px;
+            display: flex;
+            justify-content: flex-start;
+            .statusItem {
+              margin-right: 20px;
+              line-height: 20px;
+              font-size: 14px;
+              color: #d9d9d9;
+              cursor: pointer;
+              &:hover {
+                color: #42b983;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+.saveMessageListWrap {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.7);
+  .saveMessageCon {
+    width: calc(100vw * 0.8);
+    height: calc(100vh * 0.9);
+    background: #101014;
+    margin: 0 auto;
+    overflow: hidden;
+    .chatMessageList {
+      padding: 20px;
+      overflow-y: auto;
+      background: #101014;
+      .messageItem {
+        width: 100%;
+        display: flex;
+        justify-content: flex-start;
+        margin-bottom: 40px;
+        .messageItemAvtar {
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
+          border: 1px solid #cccccc;
+          overflow: hidden;
+          flex-shrink: 0;
+          img {
+            width: 100%;
+            height: 100%;
+          }
+        }
+        .messageDetail {
+          width: 100%;
+          margin-left: 10px;
+          position: relative;
+          top: -5px;
+          .date {
+            font-size: 16px;
+            line-height: 30px;
+            color: #ffffff;
+            text-align: left;
+          }
+          .messageDetailText {
+            display: block;
+            padding: 5px 10px;
+            background: #1e1e20;
+            border-radius: 10px;
+            text-align: left;
+            font-size: 16px;
+            color: #ffffff;
+            line-height: 30px;
+          }
+          .status {
+            font-size: 14px;
+            line-height: 20px;
+            color: #d9d9d9;
+            padding-left: 10px;
+            padding-top: 5px;
+            display: flex;
+            justify-content: flex-start;
+            .statusItem {
+              margin-right: 20px;
+              line-height: 20px;
+              font-size: 14px;
+              color: #d9d9d9;
+              cursor: pointer;
+            }
           }
         }
       }
