@@ -80,11 +80,12 @@
             </div>
             <div class="messageDetail">
               <div class="date">{{ item.timeStr }}</div>
-              <div
-                class="messageDetailText"
-                :id="'messageItem_' + index"
-                v-html="item.contentHtml"
-              ></div>
+              <div class="messageDetailText" :id="'messageItem_' + index">
+                <div
+                  class="messageDetailTextDetail"
+                  v-html="item.contentHtml"
+                ></div>
+              </div>
               <div class="status" v-if="item.role != 'user'">
                 <div class="statusItem">
                   {{ item.status ? "回答已完成" : "正在回答中" }}
@@ -340,11 +341,15 @@ export default {
         throw new Error(error);
       }
     },
-    async addMessage(chatId, json) {
+    async addMessage(chatId, json, isAnswer) {
       try {
-        const createId = new Date().getTime();
+        if (json.role == "assistant") {
+          const parentsInfo = this.messageList[isAnswer - 1];
+          parentsInfo.status = true;
+          await chatDetailDB.updateData({ ...parentsInfo });
+          json.id = new Date().getTime();
+        }
         await chatDetailDB.addData({
-          id: createId,
           chatId,
           ...json,
         });
@@ -356,6 +361,10 @@ export default {
       try {
         const messageList = await chatDetailDB.queryList({ chatId });
         this.messageList = messageList;
+        setTimeout(() => {
+          this.initCopyBtn();
+          this.scrollDown();
+        }, 1000);
       } catch (error) {
         throw new Error(error);
       }
@@ -415,14 +424,19 @@ export default {
         });
         return;
       }
+      const qusId = new Date().getTime();
       const pushData = {
         role: "user",
         content: this.sendMessageText,
         contentHtml: marked.parse(this.sendMessageText),
         timeStr: parseTime(new Date()),
+        id: qusId,
+        status: false,
+        chatId: this.historyListId,
       };
       this.addMessage(this.historyListId, pushData);
       if (this.messageList.length == 0) {
+        pushData.content += "（如果回答中有代码，请以markdown形式返回）";
         this.upDateMessageTitle(this.sendMessageText.substring(0, 20));
       }
       const answerData = {
@@ -431,10 +445,13 @@ export default {
         contentHtml: "正在回答中...",
         timeStr: parseTime(new Date()),
         status: false,
+        parentId: qusId,
+        chatId: this.historyListId,
       };
       this.messageList.push(pushData);
       this.messageList.push(answerData);
       this.getAnswer();
+      this.scrollDown();
     },
     scrollDown() {
       this.$nextTick(() => {
@@ -569,15 +586,22 @@ export default {
         delete item["contentHtml"];
         delete item["timeStr"];
         delete item["status"];
+        delete item["chatId"];
+        delete item["id"];
+        delete item["parentId"];
       });
+      const lastPushList = pushList.slice(
+        pushList.length - 5 > 0 ? pushList.length - 5 : 0,
+        pushList.length
+      );
       const upIndex = this.messageList.length - 1;
       try {
         //http://82.156.167.136/chatNew
-        const response = await fetch("https://api.sxfenbi.com/chatNew", {
+        const response = await fetch("http://82.156.167.136/chatNew", {
           signal: abortController.signal,
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(pushList),
+          body: JSON.stringify(lastPushList),
         });
         if (!response.ok) {
           throw new Error(response.statusText);
@@ -601,7 +625,11 @@ export default {
                 nowData + partialResponse.replace("DONE", "")
               );
               this.messageList[upIndex].status = true;
-              this.addMessage(this.historyListId, this.messageList[upIndex]);
+              this.addMessage(
+                this.historyListId,
+                this.messageList[upIndex],
+                upIndex
+              );
               flag = false;
               this.initCopyBtn();
               abortController.abort();
@@ -616,7 +644,11 @@ export default {
                   nowData + partialResponseNew
                 );
                 this.messageList[upIndex].status = true;
-                this.addMessage(this.historyListId, this.messageList[upIndex]);
+                this.addMessage(
+                  this.historyListId,
+                  this.messageList[upIndex],
+                  upIndex
+                );
                 flag = false;
                 abortController.abort();
                 break;
@@ -632,7 +664,11 @@ export default {
           if (done) {
             flag = false;
             this.messageList[upIndex].status = true;
-            this.addMessage(this.historyListId, this.messageList[upIndex]);
+            this.addMessage(
+              this.historyListId,
+              this.messageList[upIndex],
+              upIndex
+            );
             this.initCopyBtn();
             abortController.abort();
             break;
@@ -698,15 +734,32 @@ export default {
     color: #42b983;
   }
 }
+.isPhone {
+  .code-block {
+    pre {
+      code {
+        padding: 10px;
+        width: 100%;
+        box-sizing: border-box;
+        display: block;
+        overflow-x: auto;
+      }
+    }
+  }
+}
 .code-block {
   position: relative;
+  min-width: 200px;
   pre {
+    min-width: 200px;
     background: #0d1117;
     border-radius: 10px !important;
-    overflow: hidden;
+    padding-top: 30px;
     code {
       padding-top: 30px !important;
       padding: 30px;
+      width: 100%;
+      display: block;
       &.hljs {
         padding-top: 30px !important;
         padding: 0;
@@ -808,6 +861,9 @@ export default {
       padding-left: 0;
       .chatMessageList {
         padding-top: 60px;
+        .messageDetailTextDetail {
+          display: block !important;
+        }
       }
       .chatMessageSend {
         padding-left: 0px;
@@ -1171,14 +1227,17 @@ export default {
             text-align: left;
           }
           .messageDetailText {
-            display: inline-block;
-            padding: 5px 10px;
-            background: #1e1e20;
-            border-radius: 10px;
-            text-align: left;
-            font-size: 16px;
-            color: #fff;
-            line-height: 30px;
+            display: block;
+            .messageDetailTextDetail {
+              display: inline-block;
+              padding: 5px 10px;
+              background: #1e1e20;
+              border-radius: 10px;
+              text-align: left;
+              font-size: 16px;
+              color: #fff;
+              line-height: 30px;
+            }
           }
           .status {
             font-size: 14px;
