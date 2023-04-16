@@ -573,7 +573,7 @@ export default {
       const upIndex = this.messageList.length - 1;
       try {
         //http://82.156.167.136/chatNew
-        const response = await fetch("http://82.156.167.136/chatNew", {
+        const response = await fetch("https://api.sxfenbi.com/chatNew", {
           signal: abortController.signal,
           method: "POST",
           headers: { "Content-Type": "application/json" },
