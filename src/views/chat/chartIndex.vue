@@ -1,20 +1,47 @@
 <template>
-  <div class="chatPage">
+  <div
+    class="chatPage"
+    :class="{
+      hideSildeLeft: !isPhone && !isShowLeft,
+      isPhone: isPhone,
+      phoneMenu: phoneMenu,
+    }"
+  >
+    <div class="homeTop">
+      <div class="homeTopLeft" @click="showLeftMenu">
+        <i class="iconfont icon-caidan"></i>
+      </div>
+      <div class="homeTopMiddle">vue marked 包怎么将代码类型渲染出来</div>
+      <div class="homeTopRight">
+        <div class="iconBtn deleteBtn">
+          <i class="iconfont icon-shanchu"></i>
+        </div>
+        <div class="iconBtn saveBtn" @click="saveChat">
+          <i class="iconfont icon-daochu"></i>
+        </div>
+        <div class="iconBtn triggerBtn">
+          <i class="iconfont icon-zaixianyonghu"></i>
+        </div>
+      </div>
+    </div>
+    <div class="sildeLeftCover" @click.prevent="hideLeftSilde"></div>
     <div class="sildeLeft">
       <div class="chatHistoryList">
         <div
           class="chatHistoryItem"
           v-for="item in historyList"
           :key="item.time"
+          :class="{ active: historyListId == item.id }"
+          @click="changeChatID(item)"
         >
           <i class="iconfont icon-jichuxinxiguanli"></i>
           <div class="title">{{ item.name }}</div>
-          <div class="editMenu">
+          <div class="editMenu" v-if="historyListId == item.id">
             <i class="iconfont icon-bianji"></i>
             <i class="iconfont icon-shanchu"></i>
           </div>
         </div>
-        <div class="chatHistoryItem new">
+        <div class="chatHistoryItem new" @click="addNewChat">
           <i class="iconfont icon-jichuxinxiguanli"></i>新聊天
         </div>
       </div>
@@ -32,6 +59,9 @@
         <div class="chatUserInfoRight">
           <i class="iconfont icon-peizhizhongxin"></i>
         </div>
+      </div>
+      <div class="drawWrap" @click="showOrHideSild">
+        <i class="iconfont icon-xiangyou3fill"></i>
       </div>
     </div>
     <div class="chatCon" ref="chat">
@@ -132,8 +162,8 @@
     </div>
   </div>
 </template>
-
 <script>
+import { chatDB, chatDetailDB, chatIndex } from "@/service/chat";
 import { marked } from "marked";
 import hljs from "highlight.js";
 import "highlight.js/styles/dark.css";
@@ -148,9 +178,13 @@ export default {
       sendMessageText: "",
       messageList: [],
       historyList: [],
+      historyListId: 0,
       initHeight: 0,
       scrollbar: null,
       saveMessageListWrap: false,
+      isShowLeft: true,
+      isPhone: false,
+      phoneMenu: false,
     };
   },
   async mounted() {
@@ -174,16 +208,121 @@ export default {
       xhtml: true,
     });
     this.$nextTick(() => {
+      this.watchWindowSize();
+      const topHeight = this.isPhone ? 50 : 0;
       this.initHeight =
         this.$refs.chat.offsetHeight -
         this.$refs.chatMessageSend.offsetHeight -
-        20;
+        20 -
+        topHeight;
       this.scrollbar = this.$refs.scrollbarRef;
       this.scrollDown();
       window.addEventListener("resize", this.resizeInit);
     });
+    this.getListMenu();
   },
   methods: {
+    async addNewChat() {
+      this.addListMenu("新聊天");
+    },
+    async changeChatID(item) {
+      await chatIndex.updateData({
+        id: "chatIndex",
+        value: item.id,
+      });
+      this.historyListId = item.id;
+      this.getMessage(this.historyListId);
+    },
+    async addListMenu(name) {
+      try {
+        const createId = new Date().getTime();
+        const res = await chatDB.addData({
+          id: createId,
+          name: name,
+        });
+        if (res) {
+          const res1 = await chatIndex.updateData({
+            id: "chatIndex",
+            value: createId,
+          });
+          this.getListMenu();
+        }
+      } catch (error) {
+        throw new Error(error);
+      }
+    },
+    async getListMenu() {
+      try {
+        const res = await chatDB.queryList();
+        if (res.length <= 0) {
+          this.addListMenu("新聊天");
+        } else {
+          res.sort(function (a, b) {
+            return b.id - a.id;
+          });
+          this.historyList = res;
+          this.initHistoryIndex();
+        }
+      } catch (error) {
+        throw new Error(error);
+      }
+    },
+    async addMessage(chatId, json) {
+      try {
+        const createId = new Date().getTime();
+        await chatDetailDB.addData({
+          id: createId,
+          chatId,
+          ...json,
+        });
+      } catch (error) {
+        throw new Error(error);
+      }
+    },
+    async getMessage(chatId) {
+      try {
+        const messageList = await chatDetailDB.queryList({ chatId });
+        this.messageList = messageList;
+      } catch (error) {
+        throw new Error(error);
+      }
+    },
+    async initHistoryIndex() {
+      const res = await chatIndex.getDataById("chatIndex");
+      if (res) {
+        let historyListId = null;
+        this.historyList.forEach((item) => {
+          if (item.id == res.value) {
+            historyListId = item.id;
+          }
+        });
+        if (!historyListId) {
+          this.historyListId = this.historyList[0].id;
+          await chatIndex.updateData({
+            id: "chatIndex",
+            value: this.historyListId,
+          });
+        } else {
+          this.historyListId = historyListId;
+        }
+      } else {
+        this.historyListId = this.historyList[0].id;
+        await chatIndex.addData({
+          id: "chatIndex",
+          value: this.historyListId,
+        });
+      }
+      this.getMessage(this.historyListId);
+    },
+    showLeftMenu() {
+      this.phoneMenu = !this.phoneMenu;
+    },
+    hideLeftSilde() {
+      this.phoneMenu = false;
+    },
+    showOrHideSild() {
+      this.isShowLeft = !this.isShowLeft;
+    },
     sendMessage() {
       if (!this.sendMessageText) {
         // eslint-disable-next-line no-undef
@@ -199,6 +338,7 @@ export default {
         contentHtml: marked.parse(this.sendMessageText),
         timeStr: parseTime(new Date()),
       };
+      this.addMessage(this.historyListId, pushData);
       const answerData = {
         role: "assistant",
         content: "正在回答中...",
@@ -309,12 +449,28 @@ export default {
     },
     resizeInit() {
       this.$nextTick(() => {
+        const topHeight = this.isPhone ? 50 : 0;
         this.initHeight =
           this.$refs.chat.offsetHeight -
           this.$refs.chatMessageSend.offsetHeight -
-          20;
+          20 -
+          topHeight;
         this.scrollDown();
+        this.watchWindowSize();
       });
+    },
+    watchWindowSize() {
+      const windowWidth = document.documentElement.clientWidth;
+      if (windowWidth >= 1000) {
+        this.isPhone = false;
+        this.isShowLeft = true;
+      } else if (windowWidth < 1000 && windowWidth > 600) {
+        this.isPhone = false;
+        this.isShowLeft = false;
+      } else {
+        this.isPhone = true;
+        this.isShowLeft = false;
+      }
     },
     async getAnswer() {
       const abortController = new AbortController();
@@ -357,7 +513,7 @@ export default {
                 nowData + partialResponse.replace("DONE", "")
               );
               this.messageList[upIndex].status = true;
-              console.log(this.messageList[upIndex].content);
+              this.addMessage(this.historyListId, this.messageList[upIndex]);
               flag = false;
               this.initCopyBtn();
               abortController.abort();
@@ -372,6 +528,10 @@ export default {
                   nowData + partialResponseNew
                 );
                 this.messageList[upIndex].status = true;
+                this.addMessage(this.historyListId, this.messageList[upIndex]);
+                flag = false;
+                abortController.abort();
+                break;
               } else {
                 const nowData = this.messageList[upIndex].content;
                 this.messageList[upIndex].content = nowData + partialResponse;
@@ -384,6 +544,7 @@ export default {
           if (done) {
             flag = false;
             this.messageList[upIndex].status = true;
+            this.addMessage(this.historyListId, this.messageList[upIndex]);
             this.initCopyBtn();
             abortController.abort();
             break;
@@ -417,7 +578,9 @@ export default {
     },
   },
   beforeUnmount() {
-    window.removeEventListener("resize", this.scrollDown);
+    window.removeEventListener("resize", () => {
+      console.log("leave");
+    });
   },
 };
 </script>
@@ -517,10 +680,124 @@ export default {
   width: 100%;
   overflow: hidden;
   font-family: "myFont";
+  &.hideSildeLeft {
+    .sildeLeft {
+      transform: translateX(-100%);
+      .drawWrap {
+        transform: rotate(0);
+      }
+    }
+    .chatCon {
+      width: 100vw;
+      padding-left: 0;
+      .chatMessageSend {
+        padding-left: 20px;
+        width: calc(100vw - 20px);
+      }
+    }
+  }
+  &.isPhone {
+    &.phoneMenu {
+      .sildeLeft {
+        transform: translateX(0);
+      }
+      .sildeLeftCover {
+        display: block;
+      }
+    }
+    .sildeLeft {
+      transform: translateX(-100%);
+      z-index: 222;
+      .drawWrap {
+        display: none;
+      }
+    }
+    .homeTop {
+      display: flex;
+    }
+    .chatCon {
+      width: 100vw;
+      padding-left: 0;
+      .chatMessageList {
+        padding-top: 60px;
+      }
+      .chatMessageSend {
+        padding-left: 0px;
+        width: 100vw;
+        .iconBtn {
+          display: none;
+        }
+        .sendMessage {
+          width: calc(100% - 100px);
+        }
+      }
+    }
+  }
+  .sildeLeftCover {
+    width: 100%;
+    position: fixed;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.2);
+    display: none;
+    z-index: 22;
+  }
+  .homeTop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    height: 50px;
+    z-index: 12;
+    background: #18181c;
+    display: none;
+    .homeTopLeft {
+      width: 60px;
+      display: flex;
+      justify-content: center;
+      flex-direction: column;
+      text-align: center;
+      flex-shrink: 0;
+      cursor: pointer;
+      .iconfont {
+        font-size: 30px;
+        color: #ffffff;
+      }
+    }
+    .homeTopMiddle {
+      width: 100%;
+      text-align: left;
+      color: #ffffff;
+      font-size: 18px;
+      line-height: 50px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .homeTopRight {
+      width: 120px;
+      display: flex;
+      justify-content: flex-end;
+      flex-shrink: 0;
+      .iconBtn {
+        width: 40px;
+        height: 50px;
+        line-height: 50px;
+        text-align: center;
+        .iconfont {
+          font-size: 20px;
+          color: #ffffff;
+        }
+      }
+    }
+  }
   .sildeLeft {
     width: 300px;
     height: 100vh;
-    overflow: auto;
     background: #18181c;
     border-right: 1px solid #48484e;
     display: flex;
@@ -529,7 +806,23 @@ export default {
     position: fixed;
     left: 0;
     top: 0;
-    z-index: 2;
+    z-index: 10;
+    transition: all 0.5s;
+    .drawWrap {
+      position: absolute;
+      right: -20px;
+      top: 50%;
+      margin-top: -20px;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      transform: rotate(180deg);
+      transition: all 0.5s;
+      .iconfont {
+        font-size: 40px;
+        color: #f5f5f7;
+      }
+    }
     .chatHistoryList {
       height: calc(100vh - 100px);
       &::-webkit-scrollbar {
@@ -553,6 +846,19 @@ export default {
         height: 50px;
         border-radius: 8px;
         cursor: pointer;
+        &.active {
+          .icon-jichuxinxiguanli {
+            color: #42b983;
+          }
+          .title {
+            color: #42b983;
+          }
+          .editMenu {
+            .iconfont {
+              color: #42b983;
+            }
+          }
+        }
         &.new {
           background: #18181c;
           border: 1px dotted #fff;
@@ -569,14 +875,14 @@ export default {
         }
         .icon-jichuxinxiguanli {
           font-size: 15px;
-          color: #42b983;
+          color: #ffffff;
           margin-left: 10px;
           margin-top: 18px;
         }
         .title {
           width: 170px;
           height: 50px;
-          color: #42b983;
+          color: #ffffff;
           font-size: 14px;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -591,7 +897,7 @@ export default {
           padding-top: 18px;
           .iconfont {
             font-size: 15px;
-            color: #42b983;
+            color: #ffffff;
           }
         }
       }
@@ -661,6 +967,7 @@ export default {
     padding-left: 300px;
     height: 100vh;
     position: relative;
+    transition: width 0.5s;
     .chatMessageSend {
       position: absolute;
       padding-left: 320px;
@@ -689,6 +996,7 @@ export default {
         width: calc(100% - 220px);
         height: 60px;
         margin-left: 10px;
+        background: #101014;
         .sendMessageText {
           width: 98%;
           height: 40px;
