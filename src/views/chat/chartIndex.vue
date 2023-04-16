@@ -1,20 +1,47 @@
 <template>
-  <div class="chatPage">
+  <div
+    class="chatPage"
+    :class="{
+      hideSildeLeft: !isPhone && !isShowLeft,
+      isPhone: isPhone,
+      phoneMenu: phoneMenu,
+    }"
+  >
+    <div class="homeTop">
+      <div class="homeTopLeft" @click="showLeftMenu">
+        <i class="iconfont icon-caidan"></i>
+      </div>
+      <div class="homeTopMiddle">{{ historyListIdInfo.info }}</div>
+      <div class="homeTopRight">
+        <div class="iconBtn deleteBtn" @click="deleteChatTitle">
+          <i class="iconfont icon-shanchu"></i>
+        </div>
+        <div class="iconBtn saveBtn" @click="saveChat">
+          <i class="iconfont icon-daochu"></i>
+        </div>
+        <div class="iconBtn triggerBtn">
+          <i class="iconfont icon-zaixianyonghu"></i>
+        </div>
+      </div>
+    </div>
+    <div class="sildeLeftCover" @click.prevent="hideLeftSilde"></div>
     <div class="sildeLeft">
       <div class="chatHistoryList">
         <div
           class="chatHistoryItem"
           v-for="item in historyList"
           :key="item.time"
+          :class="{ active: historyListId == item.id }"
+          @click="changeChatID(item)"
         >
           <i class="iconfont icon-jichuxinxiguanli"></i>
           <div class="title">{{ item.name }}</div>
-          <div class="editMenu">
-            <i class="iconfont icon-bianji"></i>
-            <i class="iconfont icon-shanchu"></i>
+          <div class="editMenu" v-if="historyListId == item.id">
+            <i class="iconfont icon-bianji" @click="editChatTitle(item)"></i>
+            <i class="iconfont icon-shanchu" @click="deleteChatTitle(item)"></i>
           </div>
         </div>
-        <div class="chatHistoryItem new">
+        <div class="chatHistoryItem new" @click="addNewChat">
           <i class="iconfont icon-jichuxinxiguanli"></i>新聊天
         </div>
       </div>
@@ -33,31 +60,60 @@
           <i class="iconfont icon-peizhizhongxin"></i>
         </div>
       </div>
-    </div>
-    <div class="chatCon">
-      <div class="chatMessageList">
-        <div
-          class="messageItem"
-          v-for="(item, index) in messageList"
-          :class="[item.role == 'user' ? 'right' : 'left']"
-          :key="index"
-        >
-          <div class="messageItemAvtar">
-            <img
-              src="https://foruda.gitee.com/avatar/1676969986653436463/1460456_xiaoyu213_1618720174.png!avatar200"
-            />
-          </div>
-          <div class="messageDetail">
-            <div class="date">{{ item.timeStr }}</div>
-            <div class="messageDetailText" v-html="item.contentHtml"></div>
-          </div>
-        </div>
+      <div class="drawWrap" @click="showOrHideSild">
+        <i class="iconfont icon-xiangyou3fill"></i>
       </div>
-      <div class="chatMessageSend">
+    </div>
+    <div class="chatCon" ref="chat">
+      <div class="chatMessageList">
+        <el-scrollbar :height="initHeight" ref="scrollbarRef" id="chatListWrap">
+          <div
+            class="messageItem"
+            v-for="(item, index) in messageList"
+            :class="[item.role == 'user' ? 'right' : 'left']"
+            :key="index"
+          >
+            <div class="messageItemAvtar">
+              <img
+                src="https://foruda.gitee.com/avatar/1676969986653436463/1460456_xiaoyu213_1618720174.png!avatar200"
+              />
+            </div>
+            <div class="messageDetail">
+              <div class="date">{{ item.timeStr }}</div>
+              <div
+                class="messageDetailText"
+                :id="'messageItem_' + index"
+                v-html="item.contentHtml"
+              ></div>
+              <div class="status" v-if="item.role != 'user'">
+                <div class="statusItem">
+                  {{ item.status ? "回答已完成" : "正在回答中" }}
+                </div>
+                <div
+                  class="statusItem copyItem"
+                  v-if="item.status"
+                  @click.prevent="copyAllAnswer(index)"
+                >
+                  复制答案
+                </div>
+                <div
+                  class="statusItem"
+                  v-if="item.status"
+                  @click.prevent="downloadAllAnswer(index)"
+                >
+                  保存为图片
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="messageItem lastMessageItem" ref="lastMessageItem"></div>
+        </el-scrollbar>
+      </div>
+      <div class="chatMessageSend" ref="chatMessageSend">
         <div class="iconBtn deleteBtn">
-          <i class="iconfont icon-shanchu"></i>
+          <i class="iconfont icon-shanchu" @click="deleteChatTitle"></i>
         </div>
-        <div class="iconBtn saveBtn">
+        <div class="iconBtn saveBtn" @click="saveChat">
           <i class="iconfont icon-daochu"></i>
         </div>
         <div class="iconBtn triggerBtn">
@@ -80,13 +136,59 @@
         </div>
       </div>
     </div>
+    <div class="saveMessageListWrap" v-if="saveMessageListWrap">
+      <div class="saveMessageCon">
+        <div class="chatMessageList" id="saveChatMessageList">
+          <div
+            class="messageItem left"
+            v-for="(item, index) in messageList"
+            :key="index"
+          >
+            <div class="messageItemAvtar">
+              <img src="./../../assets/1460456_xiaoyu213_1618720174.png" />
+            </div>
+            <div class="messageDetail">
+              <div class="date">{{ item.timeStr }}</div>
+              <div class="messageDetailText" v-html="item.contentHtml"></div>
+              <div class="status" v-if="item.role != 'user'">
+                <div class="statusItem">
+                  {{ item.status ? "回答已完成" : "正在回答中" }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <el-dialog
+      v-model="centerDialogVisible"
+      title="修改聊天标题"
+      width="400"
+      center
+    >
+      <el-input
+        v-model="changeName"
+        placeholder="请输入名称"
+        :prefix-icon="ChatLineRound"
+      />
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="centerDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="changeChatName">确认修改</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
-
 <script>
+import { chatDB, chatDetailDB, chatIndex } from "@/service/chat";
 import { marked } from "marked";
 import hljs from "highlight.js";
-import "highlight.js/styles/idea.css";
+import "highlight.js/styles/dark.css";
+import "highlight.js/styles/github-dark.css";
+import { parseTime } from "@/utils/date";
+import Clipboard from "clipboard";
+import html2canvas from "html2canvas";
 export default {
   name: "chartIndex",
   data() {
@@ -94,14 +196,29 @@ export default {
       sendMessageText: "",
       messageList: [],
       historyList: [],
+      historyListId: 0,
+      historyListIndex: 0,
+      historyListIdInfo: {},
+      initHeight: 0,
+      scrollbar: null,
+      saveMessageListWrap: false,
+      isShowLeft: true,
+      isPhone: false,
+      phoneMenu: false,
+      centerDialogVisible: false,
+      changeName: "",
     };
   },
   async mounted() {
     marked.setOptions({
       renderer: new marked.Renderer(),
       highlight: function (code, lang) {
-        const language = hljs.getLanguage(lang) ? lang : "plaintext";
-        return hljs.highlight(code, { language }).value;
+        const language = hljs.getLanguage(lang) ? lang : "javascript";
+        const returnCode = hljs.highlight(code, { language }).value;
+        return (
+          `<span class="languageType" style="display: none">${lang}</span>` +
+          returnCode
+        );
       },
       langPrefix: "hljs language-",
       pedantic: false,
@@ -112,8 +229,183 @@ export default {
       smartypants: true,
       xhtml: true,
     });
+    this.$nextTick(() => {
+      this.watchWindowSize();
+      const topHeight = this.isPhone ? 50 : 0;
+      if (this.$refs.chat && this.$refs.chatMessageSend) {
+        this.initHeight =
+          this.$refs.chat.offsetHeight -
+          this.$refs.chatMessageSend.offsetHeight -
+          20 -
+          topHeight;
+      }
+      this.scrollbar = this.$refs.scrollbarRef;
+      this.scrollDown();
+      window.addEventListener("resize", this.resizeInit);
+    });
+    this.getListMenu();
   },
   methods: {
+    async addNewChat() {
+      this.addListMenu("新聊天");
+    },
+    async changeChatID(item) {
+      await chatIndex.updateData({
+        id: "chatIndex",
+        value: item.id,
+      });
+      this.historyListId = item.id;
+      this.getMessage(this.historyListId);
+    },
+    editChatTitle() {
+      this.centerDialogVisible = true;
+    },
+    changeChatName() {
+      if (!this.changeName) {
+        ElMessage({
+          type: "info",
+          message: "请输入要修改的名称",
+        });
+        return;
+      }
+      this.upDateMessageTitle(this.changeName);
+      this.centerDialogVisible = false;
+      this.changeName = "";
+    },
+    deleteChatTitle(item) {
+      ElMessageBox.confirm("请问真的要删除这个聊天记录么", "Warning", {
+        confirmButtonText: "确认",
+        cancelButtonText: "取消",
+        type: "warning",
+      })
+        .then(() => {
+          this.removeNowChat();
+        })
+        .catch(() => {
+          ElMessage({
+            type: "info",
+            message: "取消删除",
+          });
+        });
+    },
+    async removeNowChat() {
+      await chatDB.deleteDataById(this.historyListId);
+      await chatDetailDB.deleteDataByChatIds(this.historyListId);
+      this.historyListId = null;
+      ElMessage({
+        type: "success",
+        message: "删除成功！",
+      });
+      this.getListMenu();
+    },
+    async addListMenu(name) {
+      try {
+        const createId = new Date().getTime();
+        const res = await chatDB.addData({
+          id: createId,
+          name: name,
+        });
+        if (res) {
+          await chatIndex.updateData({
+            id: "chatIndex",
+            value: createId,
+          });
+          this.getListMenu();
+        }
+      } catch (error) {
+        throw new Error(error);
+      }
+    },
+    async upDateMessageTitle(name) {
+      const historyListIdInfo = JSON.parse(
+        JSON.stringify(this.historyListIdInfo)
+      );
+      historyListIdInfo.name = name;
+      await chatDB.updateData(historyListIdInfo);
+      this.historyList[this.historyListIndex] = historyListIdInfo;
+    },
+    async getListMenu() {
+      try {
+        const res = await chatDB.queryList();
+        if (res.length <= 0) {
+          this.addListMenu("新聊天");
+        } else {
+          res.sort(function (a, b) {
+            return b.id - a.id;
+          });
+          this.historyList = res;
+          this.initHistoryIndex();
+        }
+      } catch (error) {
+        throw new Error(error);
+      }
+    },
+    async addMessage(chatId, json) {
+      try {
+        const createId = new Date().getTime();
+        await chatDetailDB.addData({
+          id: createId,
+          chatId,
+          ...json,
+        });
+      } catch (error) {
+        throw new Error(error);
+      }
+    },
+    async getMessage(chatId) {
+      try {
+        const messageList = await chatDetailDB.queryList({ chatId });
+        this.messageList = messageList;
+      } catch (error) {
+        throw new Error(error);
+      }
+    },
+    async initHistoryIndex() {
+      const res = await chatIndex.getDataById("chatIndex");
+      if (res) {
+        let historyListId = null;
+        let historyListIdInfo = null;
+        let historyListIndex = 0;
+        this.historyList.forEach((item, index) => {
+          if (item.id == res.value) {
+            historyListId = item.id;
+            historyListIdInfo = item;
+            historyListIndex = index;
+          }
+        });
+        if (!historyListId) {
+          this.historyListId = this.historyList[0].id;
+          this.historyListIdInfo = this.historyList[0];
+          this.historyListIndex = 0;
+          await chatIndex.updateData({
+            id: "chatIndex",
+            value: this.historyListId,
+          });
+        } else {
+          this.historyListId = historyListId;
+          this.historyListIdInfo = historyListIdInfo;
+          this.historyListIndex = historyListIndex;
+        }
+      } else {
+        this.historyListId = this.historyList[0].id;
+        this.historyListIdInfo = this.historyList[0];
+        this.historyListIndex = 0;
+        await chatIndex.addData({
+          id: "chatIndex",
+          value: this.historyListId,
+        });
+      }
+      this.getMessage(this.historyListId);
+    },
+    showLeftMenu() {
+      this.phoneMenu = !this.phoneMenu;
+    },
+    hideLeftSilde() {
+      this.phoneMenu = false;
+    },
+    showOrHideSild() {
+      this.isShowLeft = !this.isShowLeft;
+    },
     sendMessage() {
       if (!this.sendMessageText) {
         // eslint-disable-next-line no-undef
@@ -127,15 +419,146 @@ export default {
         role: "user",
         content: this.sendMessageText,
         contentHtml: marked.parse(this.sendMessageText),
+        timeStr: parseTime(new Date()),
       };
+      this.addMessage(this.historyListId, pushData);
+      if (this.messageList.length == 0) {
+        this.upDateMessageTitle(this.sendMessageText.substring(0, 20));
+      }
       const answerData = {
         role: "assistant",
         content: "正在回答中...",
         contentHtml: "正在回答中...",
+        timeStr: parseTime(new Date()),
+        status: false,
       };
       this.messageList.push(pushData);
       this.messageList.push(answerData);
       this.getAnswer();
+    },
+    scrollDown() {
+      this.$nextTick(() => {
+        this.scrollbar.setScrollTop(
+          this.$refs.lastMessageItem.offsetTop +
+            this.$refs.lastMessageItem.offsetHeight
+        );
+      });
+    },
+    initCopyBtn() {
+      // 为所有代码块添加复制代码按钮
+      this.$el.querySelectorAll("pre").forEach((block) => {
+        const hasCopyBtn = block.querySelector(".code-block") !== null;
+        if (!hasCopyBtn) {
+          const languageTypeSpan = block.querySelector(".languageType");
+          let languageType = null;
+          if (languageTypeSpan) {
+            languageType = languageTypeSpan.innerHTML;
+            languageTypeSpan.remove();
+          }
+          // 创建“复制”按钮元素
+          const copyBtn = document.createElement("span");
+          copyBtn.className = "copy-btn";
+          copyBtn.textContent = "复制代码";
+          const languageTypeSpanNew = document.createElement("span");
+          languageTypeSpanNew.className = "languageTypeSpanNew";
+          languageTypeSpanNew.textContent = languageType;
+
+          // 创建“保存为图片”按钮元素
+          const downloadBtn = document.createElement("span");
+          downloadBtn.className = "download-btn";
+          downloadBtn.textContent = "保存为图片";
+
+          const div = document.createElement("div");
+          div.className = "code-block";
+          block.parentNode.insertBefore(div, block);
+          div.appendChild(downloadBtn);
+          div.appendChild(copyBtn);
+          div.appendChild(languageTypeSpanNew);
+          div.appendChild(block);
+          copyBtn.addEventListener("click", (e) => {
+            const text = block.innerText;
+            const clipboard = new Clipboard(e.target, { text: () => text });
+            clipboard.on("success", (e) => {
+              ElMessage.success("复制成功");
+              // 释放内存
+              clipboard.off("error");
+              clipboard.off("success");
+              clipboard.destroy();
+            });
+            clipboard.on("error", (e) => {
+              // 释放内存
+              ElMessage.success("复制失败");
+              clipboard.off("error");
+              clipboard.off("success");
+              clipboard.destroy();
+            });
+            clipboard.onClick(e);
+          });
+          downloadBtn.addEventListener("click", (e) => {
+            this.creatImg(block);
+          });
+        }
+      });
+    },
+    copyAllAnswer(index) {
+      const text = this.messageList[index].content;
+      const clipboard = new Clipboard(event.target, { text: () => text });
+      clipboard.on("success", (e) => {
+        ElMessage.success("复制成功");
+        // 释放内存
+        clipboard.off("error");
+        clipboard.off("success");
+        clipboard.destroy();
+      });
+      clipboard.on("error", (e) => {
+        // 释放内存
+        ElMessage.success("复制失败");
+        clipboard.off("error");
+        clipboard.off("success");
+        clipboard.destroy();
+      });
+      // eslint-disable-next-line no-undef
+      clipboard.onClick(event);
+    },
+    saveChat() {
+      this.saveMessageListWrap = true;
+      this.$nextTick(() => {
+        const nowDom = document.getElementById(`saveChatMessageList`);
+        this.creatImg(nowDom, () => {
+          this.saveMessageListWrap = false;
+        });
+      });
+    },
+    downloadAllAnswer(index) {
+      const nowDom = document.getElementById(`messageItem_${index}`);
+      this.creatImg(nowDom);
+    },
+    resizeInit() {
+      this.$nextTick(() => {
+        const topHeight = this.isPhone ? 50 : 0;
+        if (this.$refs.chat && this.$refs.chatMessageSend) {
+          this.initHeight =
+            this.$refs.chat.offsetHeight -
+            this.$refs.chatMessageSend.offsetHeight -
+            20 -
+            topHeight;
+        }
+        this.scrollDown();
+        this.watchWindowSize();
+      });
+    },
+    watchWindowSize() {
+      const windowWidth = document.documentElement.clientWidth;
+      if (windowWidth >= 1000) {
+        this.isPhone = false;
+        this.isShowLeft = true;
+      } else if (windowWidth < 1000 && windowWidth > 600) {
+        this.isPhone = false;
+        this.isShowLeft = false;
+      } else {
+        this.isPhone = true;
+        this.isShowLeft = false;
+      }
     },
     async getAnswer() {
       const abortController = new AbortController();
@@ -144,11 +567,13 @@ export default {
       );
       pushList.forEach((item) => {
         delete item["contentHtml"];
+        delete item["timeStr"];
+        delete item["status"];
       });
       const upIndex = this.messageList.length - 1;
       try {
         //http://82.156.167.136/chatNew
-        const response = await fetch("http://82.156.167.136/chatNew", {
+        const response = await fetch("https://api.sxfenbi.com/chatNew", {
           signal: abortController.signal,
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -175,28 +600,75 @@ export default {
               this.messageList[upIndex].contentHtml = marked.parse(
                 nowData + partialResponse.replace("DONE", "")
               );
+              this.messageList[upIndex].status = true;
+              this.addMessage(this.historyListId, this.messageList[upIndex]);
               flag = false;
+              this.initCopyBtn();
               abortController.abort();
+              break;
             } else {
-              // let codeStart = false;
-              const nowData = this.messageList[upIndex].content;
-              this.messageList[upIndex].content = nowData + partialResponse;
-              this.messageList[upIndex].contentHtml = marked.parse(
-                nowData + partialResponse
-              );
+              if (partialResponse == "ERROR") {
+                const partialResponseNew = "出现错误";
+                const nowData = this.messageList[upIndex].content;
+                this.messageList[upIndex].content =
+                  nowData + partialResponseNew;
+                this.messageList[upIndex].contentHtml = marked.parse(
+                  nowData + partialResponseNew
+                );
+                this.messageList[upIndex].status = true;
+                this.addMessage(this.historyListId, this.messageList[upIndex]);
+                flag = false;
+                abortController.abort();
+                break;
+              } else {
+                const nowData = this.messageList[upIndex].content;
+                this.messageList[upIndex].content = nowData + partialResponse;
+                this.messageList[upIndex].contentHtml = marked.parse(
+                  nowData + partialResponse
+                );
+              }
             }
-            console.log(this.messageList[upIndex].content);
           }
           if (done) {
             flag = false;
+            this.messageList[upIndex].status = true;
+            this.addMessage(this.historyListId, this.messageList[upIndex]);
+            this.initCopyBtn();
             abortController.abort();
             break;
           }
+          this.scrollDown();
         }
       } catch (error) {
         abortController.abort();
       }
     },
+    // 生成图片
+    creatImg(domRef, fn) {
+      const setup = {
+        useCORS: true, // 使用跨域
+      };
+      html2canvas(domRef, setup).then((canvas) => {
+        const link = canvas.toDataURL("image/jpg");
+        this.exportPicture(link, "文件名", fn);
+      });
+    },
+    // 导出图片
+    exportPicture(link, name = "未命名文件", fn) {
+      const file = document.createElement("a");
+      file.style.display = "none";
+      file.href = link;
+      file.download = decodeURI(name);
+      document.body.appendChild(file);
+      file.click();
+      document.body.removeChild(file);
+      fn && fn();
+    },
+  },
+  beforeUnmount() {
+    window.removeEventListener("resize", () => {
+      console.log("leave");
+    });
   },
 };
 </script>
@@ -212,6 +684,7 @@ export default {
   &:deep(pre) {
     background: #282c34;
     color: #fff;
+    position: relative !important;
   }
   &:deep(code) {
     background: #42b983;
@@ -225,6 +698,68 @@ export default {
     color: #42b983;
   }
 }
+.code-block {
+  position: relative;
+  pre {
+    background: #0d1117;
+    border-radius: 10px !important;
+    overflow: hidden;
+    code {
+      padding-top: 30px !important;
+      padding: 30px;
+      &.hljs {
+        padding-top: 30px !important;
+        padding: 0;
+      }
+    }
+  }
+  .copy-btn {
+    font-size: 12px !important;
+    line-height: 12px !important;
+    display: inline-block !important;
+    position: absolute !important;
+    right: 10px !important;
+    top: 10px !important;
+    color: #fff !important;
+    background: none !important;
+    outline: none;
+    box-shadow: none;
+    z-index: 222;
+    cursor: pointer;
+    &:hover {
+      color: #42b983 !important;
+    }
+  }
+  .download-btn {
+    font-size: 12px !important;
+    line-height: 12px !important;
+    display: inline-block !important;
+    position: absolute !important;
+    right: 70px !important;
+    top: 10px !important;
+    color: #fff !important;
+    background: none !important;
+    outline: none;
+    box-shadow: none;
+    z-index: 222;
+    cursor: pointer;
+    &:hover {
+      color: #42b983 !important;
+    }
+  }
+  .languageTypeSpanNew {
+    font-size: 12px !important;
+    line-height: 12px !important;
+    display: inline-block !important;
+    position: absolute !important;
+    right: 150px !important;
+    top: 10px !important;
+    color: #fff !important;
+    background: none !important;
+    outline: none;
+    box-shadow: none;
+  }
+}
 </style>
 <style lang="scss" scoped>
 .chatPage {
@@ -233,10 +768,124 @@ export default {
   width: 100%;
   overflow: hidden;
   font-family: "myFont";
+  &.hideSildeLeft {
+    .sildeLeft {
+      transform: translateX(-100%);
+      .drawWrap {
+        transform: rotate(0);
+      }
+    }
+    .chatCon {
+      width: 100vw;
+      padding-left: 0;
+      .chatMessageSend {
+        padding-left: 20px;
+        width: calc(100vw - 20px);
+      }
+    }
+  }
+  &.isPhone {
+    &.phoneMenu {
+      .sildeLeft {
+        transform: translateX(0);
+      }
+      .sildeLeftCover {
+        display: block;
+      }
+    }
+    .sildeLeft {
+      transform: translateX(-100%);
+      z-index: 222;
+      .drawWrap {
+        display: none;
+      }
+    }
+    .homeTop {
+      display: flex;
+    }
+    .chatCon {
+      width: 100vw;
+      padding-left: 0;
+      .chatMessageList {
+        padding-top: 60px;
+      }
+      .chatMessageSend {
+        padding-left: 0px;
+        width: 100vw;
+        .iconBtn {
+          display: none;
+        }
+        .sendMessage {
+          width: calc(100% - 100px);
+        }
+      }
+    }
+  }
+  .sildeLeftCover {
+    width: 100%;
+    position: fixed;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.2);
+    display: none;
+    z-index: 22;
+  }
+  .homeTop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    height: 50px;
+    z-index: 12;
+    background: #18181c;
+    display: none;
+    .homeTopLeft {
+      width: 60px;
+      display: flex;
+      justify-content: center;
+      flex-direction: column;
+      text-align: center;
+      flex-shrink: 0;
+      cursor: pointer;
+      .iconfont {
+        font-size: 30px;
+        color: #ffffff;
+      }
+    }
+    .homeTopMiddle {
+      width: 100%;
+      text-align: left;
+      color: #ffffff;
+      font-size: 18px;
+      line-height: 50px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .homeTopRight {
+      width: 120px;
+      display: flex;
+      justify-content: flex-end;
+      flex-shrink: 0;
+      .iconBtn {
+        width: 40px;
+        height: 50px;
+        line-height: 50px;
+        text-align: center;
+        .iconfont {
+          font-size: 20px;
+          color: #ffffff;
+        }
+      }
+    }
+  }
   .sildeLeft {
     width: 300px;
     height: 100vh;
-    overflow: auto;
     background: #18181c;
     border-right: 1px solid #48484e;
     display: flex;
@@ -245,7 +894,23 @@ export default {
     position: fixed;
     left: 0;
     top: 0;
-    z-index: 2;
+    z-index: 10;
+    transition: all 0.5s;
+    .drawWrap {
+      position: absolute;
+      right: -20px;
+      top: 50%;
+      margin-top: -20px;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      transform: rotate(180deg);
+      transition: all 0.5s;
+      .iconfont {
+        font-size: 40px;
+        color: #f5f5f7;
+      }
+    }
     .chatHistoryList {
       height: calc(100vh - 100px);
       &::-webkit-scrollbar {
@@ -269,6 +934,19 @@ export default {
         height: 50px;
         border-radius: 8px;
         cursor: pointer;
+        &.active {
+          .icon-jichuxinxiguanli {
+            color: #42b983;
+          }
+          .title {
+            color: #42b983;
+          }
+          .editMenu {
+            .iconfont {
+              color: #42b983;
+            }
+          }
+        }
         &.new {
           background: #18181c;
           border: 1px dotted #fff;
@@ -285,14 +963,14 @@ export default {
         }
         .icon-jichuxinxiguanli {
           font-size: 15px;
-          color: #42b983;
+          color: #ffffff;
           margin-left: 10px;
           margin-top: 18px;
         }
         .title {
           width: 170px;
           height: 50px;
-          color: #42b983;
+          color: #ffffff;
           font-size: 14px;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -307,7 +985,7 @@ export default {
           padding-top: 18px;
           .iconfont {
             font-size: 15px;
-            color: #42b983;
+            color: #ffffff;
           }
         }
       }
@@ -371,11 +1049,13 @@ export default {
     }
   }
   .chatCon {
+    background: #101014;
     width: calc(100vw - 300px);
     height: 100%;
     padding-left: 300px;
     height: 100vh;
     position: relative;
+    transition: width 0.5s;
     .chatMessageSend {
       position: absolute;
       padding-left: 320px;
@@ -404,6 +1084,7 @@ export default {
         width: calc(100% - 220px);
         height: 60px;
         margin-left: 10px;
+        background: #101014;
         .sendMessageText {
           width: 98%;
           height: 40px;
@@ -447,22 +1128,15 @@ export default {
       padding: 20px;
       height: calc(100vh - 100px);
       overflow-y: auto;
-      &::-webkit-scrollbar {
-        width: 6px;
-        border: 1px solid transparent;
-      }
-      &::-webkit-scrollbar-button {
-        display: none;
-      }
-      &::-webkit-scrollbar-thumb {
-        background: #42b983;
-        border-radius: 3px;
-      }
       .messageItem {
         width: 100%;
         display: flex;
         justify-content: flex-start;
         margin-bottom: 40px;
+        &.lastMessageItem {
+          height: 20px;
+          margin-bottom: 0px;
+        }
         &.right {
           flex-direction: row-reverse;
           .messageDetail {
@@ -505,6 +1179,105 @@ export default {
             font-size: 16px;
             color: #fff;
             line-height: 30px;
+          }
+          .status {
+            font-size: 14px;
+            line-height: 20px;
+            color: #d9d9d9;
+            padding-left: 10px;
+            padding-top: 5px;
+            display: flex;
+            justify-content: flex-start;
+            .statusItem {
+              margin-right: 20px;
+              line-height: 20px;
+              font-size: 14px;
+              color: #d9d9d9;
+              cursor: pointer;
+              &:hover {
+                color: #42b983;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+.saveMessageListWrap {
+  position: fixed;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  background: rgba(0, 0, 0, 0.7);
+  .saveMessageCon {
+    width: calc(100vw * 0.8);
+    height: calc(100vh * 0.9);
+    background: #101014;
+    margin: 0 auto;
+    overflow: hidden;
+    .chatMessageList {
+      padding: 20px;
+      overflow-y: auto;
+      background: #101014;
+      .messageItem {
+        width: 100%;
+        display: flex;
+        justify-content: flex-start;
+        margin-bottom: 40px;
+        .messageItemAvtar {
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
+          border: 1px solid #cccccc;
+          overflow: hidden;
+          flex-shrink: 0;
+          img {
+            width: 100%;
+            height: 100%;
+          }
+        }
+        .messageDetail {
+          width: 100%;
+          margin-left: 10px;
+          position: relative;
+          top: -5px;
+          .date {
+            font-size: 16px;
+            line-height: 30px;
+            color: #ffffff;
+            text-align: left;
+          }
+          .messageDetailText {
+            display: block;
+            padding: 5px 10px;
+            background: #1e1e20;
+            border-radius: 10px;
+            text-align: left;
+            font-size: 16px;
+            color: #ffffff;
+            line-height: 30px;
+          }
+          .status {
+            font-size: 14px;
+            line-height: 20px;
+            color: #d9d9d9;
+            padding-left: 10px;
+            padding-top: 5px;
+            display: flex;
+            justify-content: flex-start;
+            .statusItem {
+              margin-right: 20px;
+              line-height: 20px;
+              font-size: 14px;
+              color: #d9d9d9;
+              cursor: pointer;
+            }
           }
         }
       }
