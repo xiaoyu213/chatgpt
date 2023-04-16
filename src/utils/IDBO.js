@@ -159,7 +159,26 @@ export class IDBS {
       };
     });
   }
-
+  async deleteDataByChatIds(chatId) {
+    console.log(chatId);
+    const table = await this.getTable();
+    let request = table.openCursor();
+    return new Promise((resolve, reject) => {
+      request.onsuccess = function (e) {
+        let cursor = e.target.result;
+        if (cursor) {
+          console.log(cursor.value.chatId == chatId);
+          cursor.value.chatId == chatId && cursor.delete();
+          cursor.continue(); // 遍历了存储对象中的所有内容
+        } else {
+          resolve("ok");
+        }
+      };
+      request.onerror = function (e) {
+        reject(e);
+      };
+    });
+  }
   handleIDResponse(IDResponse, onsuccess = (e) => e, onerror = (e) => e) {
     return new Promise((resolve, reject) => {
       IDResponse.onerror = (err) => {

@@ -11,6 +11,7 @@ module.exports = {
   ],
   globals: {
     ElMessage: true,
+    ElMessageBox: true,
   },
   parserOptions: {
     ecmaVersion: 2020,

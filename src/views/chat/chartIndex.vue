@@ -11,9 +11,9 @@
       <div class="homeTopLeft" @click="showLeftMenu">
         <i class="iconfont icon-caidan"></i>
       </div>
-      <div class="homeTopMiddle">vue marked 包怎么将代码类型渲染出来</div>
+      <div class="homeTopMiddle">{{ historyListIdInfo.info }}</div>
       <div class="homeTopRight">
-        <div class="iconBtn deleteBtn">
+        <div class="iconBtn deleteBtn" @click="deleteChatTitle">
           <i class="iconfont icon-shanchu"></i>
         </div>
         <div class="iconBtn saveBtn" @click="saveChat">
@@ -37,8 +37,8 @@
           <i class="iconfont icon-jichuxinxiguanli"></i>
           <div class="title">{{ item.name }}</div>
           <div class="editMenu" v-if="historyListId == item.id">
-            <i class="iconfont icon-bianji"></i>
-            <i class="iconfont icon-shanchu"></i>
+            <i class="iconfont icon-bianji" @click="editChatTitle(item)"></i>
+            <i class="iconfont icon-shanchu" @click="deleteChatTitle(item)"></i>
           </div>
         </div>
         <div class="chatHistoryItem new" @click="addNewChat">
@@ -111,7 +111,7 @@
       </div>
       <div class="chatMessageSend" ref="chatMessageSend">
         <div class="iconBtn deleteBtn">
-          <i class="iconfont icon-shanchu"></i>
+          <i class="iconfont icon-shanchu" @click="deleteChatTitle"></i>
         </div>
         <div class="iconBtn saveBtn" @click="saveChat">
           <i class="iconfont icon-daochu"></i>
@@ -160,6 +160,24 @@
         </div>
       </div>
     </div>
+    <el-dialog
+      v-model="centerDialogVisible"
+      title="修改聊天标题"
+      width="400"
+      center
+    >
+      <el-input
+        v-model="changeName"
+        placeholder="请输入名称"
+        :prefix-icon="ChatLineRound"
+      />
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="centerDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="changeChatName">确认修改</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 <script>
@@ -179,12 +197,16 @@ export default {
       messageList: [],
       historyList: [],
       historyListId: 0,
+      historyListIndex: 0,
+      historyListIdInfo: {},
       initHeight: 0,
       scrollbar: null,
       saveMessageListWrap: false,
       isShowLeft: true,
       isPhone: false,
       phoneMenu: false,
+      centerDialogVisible: false,
+      changeName: "",
     };
   },
   async mounted() {
@@ -210,11 +232,13 @@ export default {
     this.$nextTick(() => {
       this.watchWindowSize();
       const topHeight = this.isPhone ? 50 : 0;
-      this.initHeight =
-        this.$refs.chat.offsetHeight -
-        this.$refs.chatMessageSend.offsetHeight -
-        20 -
-        topHeight;
+      if (this.$refs.chat && this.$refs.chatMessageSend) {
+        this.initHeight =
+          this.$refs.chat.offsetHeight -
+          this.$refs.chatMessageSend.offsetHeight -
+          20 -
+          topHeight;
+      }
       this.scrollbar = this.$refs.scrollbarRef;
       this.scrollDown();
       window.addEventListener("resize", this.resizeInit);
@@ -233,6 +257,47 @@ export default {
       this.historyListId = item.id;
       this.getMessage(this.historyListId);
     },
+    editChatTitle() {
+      this.centerDialogVisible = true;
+    },
+    changeChatName() {
+      if (!this.changeName) {
+        ElMessage({
+          type: "info",
+          message: "请输入要修改的名称",
+        });
+        return;
+      }
+      this.upDateMessageTitle(this.changeName);
+      this.centerDialogVisible = false;
+      this.changeName = "";
+    },
+    deleteChatTitle(item) {
+      ElMessageBox.confirm("请问真的要删除这个聊天记录么", "Warning", {
+        confirmButtonText: "确认",
+        cancelButtonText: "取消",
+        type: "warning",
+      })
+        .then(() => {
+          this.removeNowChat();
+        })
+        .catch(() => {
+          ElMessage({
+            type: "info",
+            message: "取消删除",
+          });
+        });
+    },
+    async removeNowChat() {
+      await chatDB.deleteDataById(this.historyListId);
+      await chatDetailDB.deleteDataByChatIds(this.historyListId);
+      this.historyListId = null;
+      ElMessage({
+        type: "success",
+        message: "删除成功！",
+      });
+      this.getListMenu();
+    },
     async addListMenu(name) {
       try {
         const createId = new Date().getTime();
@@ -241,7 +306,7 @@ export default {
           name: name,
         });
         if (res) {
-          const res1 = await chatIndex.updateData({
+          await chatIndex.updateData({
             id: "chatIndex",
             value: createId,
           });
@@ -250,6 +315,14 @@ export default {
       } catch (error) {
         throw new Error(error);
       }
+    },
+    async upDateMessageTitle(name) {
+      const historyListIdInfo = JSON.parse(
+        JSON.stringify(this.historyListIdInfo)
+      );
+      historyListIdInfo.name = name;
+      await chatDB.updateData(historyListIdInfo);
+      this.historyList[this.historyListIndex] = historyListIdInfo;
     },
     async getListMenu() {
       try {
@@ -291,22 +364,32 @@ export default {
       const res = await chatIndex.getDataById("chatIndex");
       if (res) {
         let historyListId = null;
-        this.historyList.forEach((item) => {
+        let historyListIdInfo = null;
+        let historyListIndex = 0;
+        this.historyList.forEach((item, index) => {
           if (item.id == res.value) {
             historyListId = item.id;
+            historyListIdInfo = item;
+            historyListIndex = index;
           }
         });
         if (!historyListId) {
           this.historyListId = this.historyList[0].id;
+          this.historyListIdInfo = this.historyList[0];
+          this.historyListIndex = 0;
           await chatIndex.updateData({
             id: "chatIndex",
             value: this.historyListId,
           });
         } else {
           this.historyListId = historyListId;
+          this.historyListIdInfo = historyListIdInfo;
+          this.historyListIndex = historyListIndex;
         }
       } else {
         this.historyListId = this.historyList[0].id;
+        this.historyListIdInfo = this.historyList[0];
+        this.historyListIndex = 0;
         await chatIndex.addData({
           id: "chatIndex",
           value: this.historyListId,
@@ -339,6 +422,9 @@ export default {
         timeStr: parseTime(new Date()),
       };
       this.addMessage(this.historyListId, pushData);
+      if (this.messageList.length == 0) {
+        this.upDateMessageTitle(this.sendMessageText.substring(0, 20));
+      }
       const answerData = {
         role: "assistant",
         content: "正在回答中...",
@@ -450,11 +536,13 @@ export default {
     resizeInit() {
       this.$nextTick(() => {
         const topHeight = this.isPhone ? 50 : 0;
-        this.initHeight =
-          this.$refs.chat.offsetHeight -
-          this.$refs.chatMessageSend.offsetHeight -
-          20 -
-          topHeight;
+        if (this.$refs.chat && this.$refs.chatMessageSend) {
+          this.initHeight =
+            this.$refs.chat.offsetHeight -
+            this.$refs.chatMessageSend.offsetHeight -
+            20 -
+            topHeight;
+        }
         this.scrollDown();
         this.watchWindowSize();
       });
