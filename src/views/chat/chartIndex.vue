@@ -190,6 +190,7 @@ import "highlight.js/styles/github-dark.css";
 import { parseTime } from "@/utils/date";
 import Clipboard from "clipboard";
 import html2canvas from "html2canvas";
+import getSign from "@/utils/sign";
 export default {
   name: "chartIndex",
   data() {
@@ -597,10 +598,16 @@ export default {
       const upIndex = this.messageList.length - 1;
       try {
         //http://82.156.167.136/chatNew
-        const response = await fetch("https://api.sxfenbi.com/chatNew", {
+        //https://api.sxfenbi.com/chatNew
+        const nowTime = new Date().getTime();
+        const response = await fetch("http://localhost:3000/chatNew", {
           signal: abortController.signal,
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            key: nowTime,
+            sign: getSign(nowTime),
+          },
           body: JSON.stringify(lastPushList),
         });
         if (!response.ok) {
@@ -613,7 +620,9 @@ export default {
         this.sendMessageText = "";
         while (flag) {
           const { value, done } = await reader.read();
+          console.log(done);
           if (value) {
+            console.log(value);
             const partialResponse = decoder.decode(value, {
               stream: true,
             });
@@ -632,7 +641,6 @@ export default {
               );
               flag = false;
               this.initCopyBtn();
-              abortController.abort();
               break;
             } else {
               if (partialResponse == "ERROR") {
@@ -650,7 +658,6 @@ export default {
                   upIndex
                 );
                 flag = false;
-                abortController.abort();
                 break;
               } else {
                 const nowData = this.messageList[upIndex].content;
