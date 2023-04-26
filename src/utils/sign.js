@@ -1,11 +1,5 @@
-import CryptoJS from "crypto-js";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const MD5 = require("crypto-js/md5");
-const sha256 = require("crypto-js/sha256");
-// 获取指定位数的随机数
-function getRandom(timestamp) {
-  return MD5(timestamp);
-}
 
 function getSign(timestamp) {
   // 密钥npm
@@ -21,7 +15,6 @@ function getSign(timestamp) {
   params.timestampStr = timestampStr;
   params.nonce = nonce;
   // 取 key
-  console.log(params);
   const sortedKeys = [];
   for (const key in params) {
     // 注意这里，要剔除掉 sign 参数本身
@@ -39,7 +32,6 @@ function getSign(timestamp) {
   // 2 拼接密钥
   str += secret;
   // 3 MD5加密
-  console.log(str);
   return MD5(str).toString().toUpperCase();
 }
 export default getSign;
