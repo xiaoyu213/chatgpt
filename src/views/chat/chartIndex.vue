@@ -129,6 +129,7 @@
               type="textarea"
               resize="none"
               placeholder="请输入消息"
+              @keydown="sendMessageKey"
             />
           </div>
         </div>
@@ -142,7 +143,7 @@
         <div class="chatMessageList" id="saveChatMessageList">
           <div
             class="messageItem left"
-            v-for="(item, index) in messageList"
+            v-for="(item, index) in saveMessageList"
             :key="index"
           >
             <div class="messageItemAvtar">
@@ -179,6 +180,26 @@
         </span>
       </template>
     </el-dialog>
+    <el-dialog
+      v-model="passwordDialogVisible"
+      title="请输入密钥进行验证"
+      width="400"
+      center
+    >
+      <el-input
+        v-model="changePassword"
+        placeholder="请输入密钥"
+        :prefix-icon="ChatLineRound"
+      />
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="passwordDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="changeChatPassword"
+            >确认验证</el-button
+          >
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 <script>
@@ -190,6 +211,9 @@ import "highlight.js/styles/github-dark.css";
 import { parseTime } from "@/utils/date";
 import Clipboard from "clipboard";
 import html2canvas from "html2canvas";
+import getSign from "@/utils/sign";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const MD5 = require("crypto-js/md5");
 export default {
   name: "chartIndex",
   data() {
@@ -208,6 +232,9 @@ export default {
       phoneMenu: false,
       centerDialogVisible: false,
       changeName: "",
+      saveMessageList: [],
+      passwordDialogVisible: false,
+      changePassword: "",
     };
   },
   async mounted() {
@@ -415,7 +442,51 @@ export default {
     showOrHideSild() {
       this.isShowLeft = !this.isShowLeft;
     },
+    sendMessageKey(event) {
+      if (event.ctrlKey && event.keyCode === 13) {
+        // 判断是否按下了ctrl和enter键
+        this.sendMessage();
+      }
+    },
+    changeChatPassword() {
+      if (!this.changePassword) {
+        ElMessage({
+          message: "请先填写服务密钥",
+          type: "warning",
+        });
+        return;
+      }
+      if (
+        MD5(this.changePassword).toString().toUpperCase() ==
+        MD5("xiaoyuopenai").toString().toUpperCase()
+      ) {
+        localStorage.setItem(
+          "password",
+          MD5("xiaoyuopenai").toString().toUpperCase()
+        );
+        this.sendMessage();
+        this.passwordDialogVisible = false;
+      } else {
+        ElMessage({
+          message: "验证失败",
+          type: "warning",
+        });
+        return;
+      }
+    },
     sendMessage() {
+      if (
+        localStorage.getItem("password") !=
+        MD5("xiaoyuopenai").toString().toUpperCase()
+      ) {
+        // eslint-disable-next-line no-undef
+        ElMessage({
+          message: "请先填写服务密钥",
+          type: "warning",
+        });
+        this.passwordDialogVisible = true;
+        return;
+      }
       if (!this.sendMessageText) {
         // eslint-disable-next-line no-undef
         ElMessage({
@@ -488,10 +559,20 @@ export default {
           const div = document.createElement("div");
           div.className = "code-block";
           block.parentNode.insertBefore(div, block);
+
+          const newDiv = document.createElement("div");
+          newDiv.className = "menu-block";
+          const span1 = document.createElement("span");
+          const span2 = document.createElement("span");
+          const span3 = document.createElement("span");
+          newDiv.appendChild(span1);
+          newDiv.appendChild(span2);
+          newDiv.appendChild(span3);
           div.appendChild(downloadBtn);
           div.appendChild(copyBtn);
           div.appendChild(languageTypeSpanNew);
           div.appendChild(block);
+          div.appendChild(newDiv);
           copyBtn.addEventListener("click", (e) => {
             const text = block.innerText;
             const clipboard = new Clipboard(e.target, { text: () => text });
@@ -512,10 +593,11 @@ export default {
             clipboard.onClick(e);
           });
           downloadBtn.addEventListener("click", (e) => {
-            this.creatImg(block);
+            this.creatImg(div);
           });
         }
       });
+      this.scrollDown();
     },
     copyAllAnswer(index) {
       const text = this.messageList[index].content;
@@ -539,6 +621,7 @@ export default {
     },
     saveChat() {
       this.saveMessageListWrap = true;
+      this.saveMessageList = this.messageList;
       this.$nextTick(() => {
         const nowDom = document.getElementById(`saveChatMessageList`);
         this.creatImg(nowDom, () => {
@@ -547,8 +630,17 @@ export default {
       });
     },
     downloadAllAnswer(index) {
-      const nowDom = document.getElementById(`messageItem_${index}`);
-      this.creatImg(nowDom);
+      this.saveMessageListWrap = true;
+      this.saveMessageList = [
+        this.messageList[index - 1],
+        this.messageList[index],
+      ];
+      this.$nextTick(() => {
+        const nowDom = document.getElementById(`saveChatMessageList`);
+        this.creatImg(nowDom, () => {
+          this.saveMessageListWrap = false;
+        });
+      });
     },
     resizeInit() {
       this.$nextTick(() => {
@@ -597,10 +689,16 @@ export default {
       const upIndex = this.messageList.length - 1;
       try {
         //http://82.156.167.136/chatNew
+        //https://api.sxfenbi.com/chatNew
+        const nowTime = new Date().getTime();
         const response = await fetch("https://api.sxfenbi.com/chatNew", {
           signal: abortController.signal,
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            key: nowTime,
+            sign: getSign(nowTime),
+          },
           body: JSON.stringify(lastPushList),
         });
         if (!response.ok) {
@@ -632,7 +730,6 @@ export default {
               );
               flag = false;
               this.initCopyBtn();
-              abortController.abort();
               break;
             } else {
               if (partialResponse == "ERROR") {
@@ -650,7 +747,6 @@ export default {
                   upIndex
                 );
                 flag = false;
-                abortController.abort();
                 break;
               } else {
                 const nowData = this.messageList[upIndex].content;
@@ -750,19 +846,40 @@ export default {
 .code-block {
   position: relative;
   min-width: 200px;
+  margin-top: 10px;
   pre {
     min-width: 200px;
     background: #0d1117;
-    border-radius: 10px !important;
     padding-top: 30px;
+    box-sizing: border-box;
     code {
-      padding-top: 30px !important;
-      padding: 30px;
+      padding: 1em;
       width: 100%;
       display: block;
+      box-sizing: border-box;
       &.hljs {
-        padding-top: 30px !important;
-        padding: 0;
+        padding-top: calc(20px + 1em) !important;
+      }
+    }
+  }
+  .menu-block {
+    position: absolute !important;
+    left: 10px !important;
+    top: 10px !important;
+    display: flex;
+    justify-content: flex-start;
+    span {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 5px;
+      background: red;
+      margin-right: 10px;
+      &:nth-last-of-type(2) {
+        background: yellow;
+      }
+      &:nth-last-of-type(3) {
+        background: green;
       }
     }
   }
@@ -1274,8 +1391,9 @@ export default {
   justify-content: center;
   flex-direction: column;
   background: rgba(0, 0, 0, 0.7);
+  z-index: -1;
   .saveMessageCon {
-    width: calc(100vw * 0.8);
+    width: 1080px;
     height: calc(100vh * 0.9);
     background: #101014;
     margin: 0 auto;
