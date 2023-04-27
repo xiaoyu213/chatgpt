@@ -88,7 +88,7 @@
             <div class="messageItemAvtar">
               <img
                 v-if="item.role == 'user'"
-                src="https://foruda.gitee.com/avatar/1676969986653436463/1460456_xiaoyu213_1618720174.png!avatar200"
+                src="./../../assets/1460456_xiaoyu213_1618720174.png"
               />
               <img v-else src="./../../assets/ChatGPTnycase.png" />
             </div>
@@ -168,7 +168,11 @@
             :key="index"
           >
             <div class="messageItemAvtar">
-              <img src="./../../assets/1460456_xiaoyu213_1618720174.png" />
+              <img
+                v-if="item.role == 'user'"
+                src="./../../assets/1460456_xiaoyu213_1618720174.png"
+              />
+              <img v-else src="./../../assets/ChatGPTnycase.png" />
             </div>
             <div class="messageDetail">
               <div class="date">{{ item.timeStr }}</div>
@@ -306,6 +310,7 @@ export default {
         value: item.id,
       });
       this.historyListId = item.id;
+      this.historyListIdInfo = item;
       this.getMessage(this.historyListId);
     },
     editChatTitle() {
