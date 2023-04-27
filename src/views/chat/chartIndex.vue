@@ -571,6 +571,12 @@ export default {
     initCopyBtn() {
       // 为所有代码块添加复制代码按钮
       this.$el.querySelectorAll("pre").forEach((block) => {
+        block.querySelectorAll("code").forEach((codeBlock) => {
+          codeBlock.innerHTML = `<ul><li>${codeBlock.innerHTML.replace(
+            /\n/g,
+            "\n</li><li>"
+          )}</li></ul>`;
+        });
         const hasCopyBtn = block.querySelector(".code-block") !== null;
         if (!hasCopyBtn) {
           const languageTypeSpan = block.querySelector(".languageType");
@@ -889,6 +895,23 @@ export default {
       box-sizing: border-box;
       &.hljs {
         padding-top: calc(20px + 1em) !important;
+      }
+      ul {
+        list-style: decimal;
+        margin: 0px 0px 0 40px !important;
+        padding: 0px;
+      }
+      ul li {
+        list-style: decimal-leading-zero;
+        padding: 5px !important;
+        margin: 0 !important;
+        line-height: 20px;
+        word-break: break-all;
+        word-wrap: break-word;
+      }
+      ul li:nth-of-type(even) {
+        background: #01070e;
+        color: inherit;
       }
     }
   }
