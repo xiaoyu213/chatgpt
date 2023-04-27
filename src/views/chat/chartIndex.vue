@@ -908,6 +908,7 @@ export default {
         line-height: 20px;
         word-break: break-all;
         word-wrap: break-word;
+        background: #2e2f30;
       }
       ul li:nth-of-type(even) {
         background: #01070e;
