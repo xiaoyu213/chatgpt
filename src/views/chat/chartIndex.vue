@@ -11,7 +11,7 @@
       <div class="homeTopLeft" @click="showLeftMenu">
         <i class="iconfont icon-caidan"></i>
       </div>
-      <div class="homeTopMiddle">{{ historyListIdInfo.info }}</div>
+      <div class="homeTopMiddle">{{ historyListIdInfo.name }}</div>
       <div class="homeTopRight">
         <div class="iconBtn deleteBtn" @click="deleteChatTitle">
           <i class="iconfont icon-shanchu"></i>
@@ -22,23 +22,35 @@
         <div class="iconBtn triggerBtn">
           <i class="iconfont icon-zaixianyonghu"></i>
         </div>
+        <div
+          class="iconBtn triggerBtn"
+          disabled="isAnswer"
+          @click="stopAllAnswer"
+        >
+          <i class="iconfont icon-tingzhi"></i>
+        </div>
       </div>
     </div>
     <div class="sildeLeftCover" @click.prevent="hideLeftSilde"></div>
     <div class="sildeLeft">
       <div class="chatHistoryList">
-        <div
-          class="chatHistoryItem"
-          v-for="item in historyList"
-          :key="item.time"
-          :class="{ active: historyListId == item.id }"
-          @click="changeChatID(item)"
-        >
-          <i class="iconfont icon-jichuxinxiguanli"></i>
-          <div class="title">{{ item.name }}</div>
-          <div class="editMenu" v-if="historyListId == item.id">
-            <i class="iconfont icon-bianji" @click="editChatTitle(item)"></i>
-            <i class="iconfont icon-shanchu" @click="deleteChatTitle(item)"></i>
+        <div class="chatHistoryListAdd">
+          <div
+            class="chatHistoryItem"
+            v-for="item in historyList"
+            :key="item.time"
+            :class="{ active: historyListId == item.id }"
+            @click="changeChatID(item)"
+          >
+            <i class="iconfont icon-jichuxinxiguanli"></i>
+            <div class="title">{{ item.name }}</div>
+            <div class="editMenu" v-if="historyListId == item.id">
+              <i class="iconfont icon-bianji" @click="editChatTitle(item)"></i>
+              <i
+                class="iconfont icon-shanchu"
+                @click="deleteChatTitle(item)"
+              ></i>
+            </div>
           </div>
         </div>
         <div class="chatHistoryItem new" @click="addNewChat">
@@ -75,8 +87,10 @@
           >
             <div class="messageItemAvtar">
               <img
+                v-if="item.role == 'user'"
                 src="https://foruda.gitee.com/avatar/1676969986653436463/1460456_xiaoyu213_1618720174.png!avatar200"
               />
+              <img v-else src="./../../assets/ChatGPTnycase.png" />
             </div>
             <div class="messageDetail">
               <div class="date">{{ item.timeStr }}</div>
@@ -119,6 +133,13 @@
         </div>
         <div class="iconBtn triggerBtn">
           <i class="iconfont icon-zaixianyonghu"></i>
+        </div>
+        <div
+          class="iconBtn triggerBtn"
+          disabled="isAnswer"
+          @click="stopAllAnswer"
+        >
+          <i class="iconfont icon-tingzhi"></i>
         </div>
         <div class="sendMessage">
           <div class="sendMessageText">
@@ -235,6 +256,8 @@ export default {
       saveMessageList: [],
       passwordDialogVisible: false,
       changePassword: "",
+      isAnswer: false,
+      abortController: null,
     };
   },
   async mounted() {
@@ -351,6 +374,7 @@ export default {
       historyListIdInfo.name = name;
       await chatDB.updateData(historyListIdInfo);
       this.historyList[this.historyListIndex] = historyListIdInfo;
+      this.historyListIdInfo = historyListIdInfo;
     },
     async getListMenu() {
       try {
@@ -485,6 +509,13 @@ export default {
           type: "warning",
         });
         this.passwordDialogVisible = true;
+        return;
+      }
+      if (this.isAnswer) {
+        ElMessage({
+          message: "等待回答完成",
+          type: "warning",
+        });
         return;
       }
       if (!this.sendMessageText) {
@@ -670,7 +701,8 @@ export default {
       }
     },
     async getAnswer() {
-      const abortController = new AbortController();
+      this.isAnswer = true;
+      this.abortController = new AbortController();
       const pushList = JSON.parse(
         JSON.stringify(this.messageList.slice(0, this.messageList.length - 1))
       );
@@ -692,7 +724,7 @@ export default {
         //https://api.sxfenbi.com/chatNew
         const nowTime = new Date().getTime();
         const response = await fetch("https://api.sxfenbi.com/chatNew", {
-          signal: abortController.signal,
+          signal: this.abortController.signal,
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -722,14 +754,8 @@ export default {
               this.messageList[upIndex].contentHtml = marked.parse(
                 nowData + partialResponse.replace("DONE", "")
               );
-              this.messageList[upIndex].status = true;
-              this.addMessage(
-                this.historyListId,
-                this.messageList[upIndex],
-                upIndex
-              );
+              this.finishAnser(upIndex);
               flag = false;
-              this.initCopyBtn();
               break;
             } else {
               if (partialResponse == "ERROR") {
@@ -740,12 +766,7 @@ export default {
                 this.messageList[upIndex].contentHtml = marked.parse(
                   nowData + partialResponseNew
                 );
-                this.messageList[upIndex].status = true;
-                this.addMessage(
-                  this.historyListId,
-                  this.messageList[upIndex],
-                  upIndex
-                );
+                this.finishAnser(upIndex);
                 flag = false;
                 break;
               } else {
@@ -759,21 +780,25 @@ export default {
           }
           if (done) {
             flag = false;
-            this.messageList[upIndex].status = true;
-            this.addMessage(
-              this.historyListId,
-              this.messageList[upIndex],
-              upIndex
-            );
-            this.initCopyBtn();
-            abortController.abort();
+            this.finishAnser(upIndex);
             break;
           }
-          this.scrollDown();
         }
       } catch (error) {
-        abortController.abort();
+        this.finishAnser(upIndex);
       }
+    },
+    stopAllAnswer() {
+      if (!this.isAnswer) return;
+      const index = this.messageList.length - 1;
+      this.finishAnser(index);
+    },
+    finishAnser(upIndex) {
+      this.messageList[upIndex].status = true;
+      this.addMessage(this.historyListId, this.messageList[upIndex], upIndex);
+      this.isAnswer = false;
+      this.abortController.abort();
+      this.initCopyBtn();
     },
     // 生成图片
     creatImg(domRef, fn) {
@@ -1040,7 +1065,7 @@ export default {
       white-space: nowrap;
     }
     .homeTopRight {
-      width: 120px;
+      width: 160px;
       display: flex;
       justify-content: flex-end;
       flex-shrink: 0;
@@ -1086,16 +1111,20 @@ export default {
     }
     .chatHistoryList {
       height: calc(100vh - 100px);
-      &::-webkit-scrollbar {
-        width: 6px;
-        border: 1px solid transparent;
-      }
-      &::-webkit-scrollbar-button {
-        display: none;
-      }
-      &::-webkit-scrollbar-thumb {
-        background: #dddddd;
-        border-radius: 3px;
+      .chatHistoryListAdd {
+        height: calc(100vh - 170px);
+        overflow: auto;
+        &::-webkit-scrollbar {
+          width: 6px;
+          border: 1px solid transparent;
+        }
+        &::-webkit-scrollbar-button {
+          display: none;
+        }
+        &::-webkit-scrollbar-thumb {
+          background: #dddddd;
+          border-radius: 3px;
+        }
       }
       .chatHistoryItem {
         width: 260px;
@@ -1254,7 +1283,7 @@ export default {
         }
       }
       .sendMessage {
-        width: calc(100% - 220px);
+        width: calc(100% - 260px);
         height: 60px;
         margin-left: 10px;
         background: #101014;
