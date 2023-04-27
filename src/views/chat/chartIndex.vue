@@ -786,6 +786,7 @@ export default {
                 this.messageList[upIndex].contentHtml = marked.parse(
                   nowData + partialResponse
                 );
+                this.scrollDown();
               }
             }
           }
