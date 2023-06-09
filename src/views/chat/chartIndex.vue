@@ -106,17 +106,24 @@
                 </div>
                 <div
                   class="statusItem copyItem"
-                  v-if="item.status"
+                  v-if="item.status == 1"
                   @click.prevent="copyAllAnswer(index)"
                 >
                   复制答案
                 </div>
                 <div
                   class="statusItem"
-                  v-if="item.status"
+                  v-if="item.status == 1"
                   @click.prevent="downloadAllAnswer(index)"
                 >
                   保存为图片
+                </div>
+                <div
+                  class="statusItem"
+                  v-if="item.status == 2"
+                  @click.prevent="repeatPushAns(index)"
+                >
+                  重新提问
                 </div>
               </div>
             </div>
@@ -503,6 +510,50 @@ export default {
         return;
       }
     },
+    repeatPushAns(index) {
+      if (
+        localStorage.getItem("password") !=
+        MD5("xiaoyuopenai").toString().toUpperCase()
+      ) {
+        // eslint-disable-next-line no-undef
+        ElMessage({
+          message: "请先填写服务密钥",
+          type: "warning",
+        });
+        this.passwordDialogVisible = true;
+        return;
+      }
+      if (index == this.messageList.length - 1) {
+        const qusId = new Date().getTime();
+        const answerData = {
+          role: "assistant",
+          content: "正在回答中...",
+          contentHtml: "正在回答中...",
+          timeStr: parseTime(new Date()),
+          status: false,
+          parentId: qusId,
+          chatId: this.historyListId,
+        };
+        this.messageList[this.messageList.length - 1] = answerData;
+      } else {
+        const qusId = new Date().getTime();
+        const pushData = this.messageList[index - 1];
+        pushData.id = qusId;
+        const answerData = {
+          role: "assistant",
+          content: "正在回答中...",
+          contentHtml: "正在回答中...",
+          timeStr: parseTime(new Date()),
+          status: false,
+          parentId: qusId,
+          chatId: this.historyListId,
+        };
+        this.messageList.push(pushData);
+        this.messageList.push(answerData);
+      }
+      this.getAnswer();
+      this.scrollDown();
+    },
     sendMessage() {
       if (
         localStorage.getItem("password") !=
@@ -571,14 +622,14 @@ export default {
     initCopyBtn() {
       // 为所有代码块添加复制代码按钮
       this.$el.querySelectorAll("pre").forEach((block) => {
-        block.querySelectorAll("code").forEach((codeBlock) => {
-          codeBlock.innerHTML = `<ul><li>${codeBlock.innerHTML.replace(
-            /\n/g,
-            "\n</li><li>"
-          )}</li></ul>`;
-        });
         const hasCopyBtn = block.querySelector(".code-block") !== null;
         if (!hasCopyBtn) {
+          // block.querySelectorAll("code").forEach((codeBlock) => {
+          //   codeBlock.innerHTML = `<ul><li>${codeBlock.innerHTML.replace(
+          //     /\n/g,
+          //     "\n</li><li>"
+          //   )}</li></ul>`;
+          // });
           const languageTypeSpan = block.querySelector(".languageType");
           let languageType = null;
           if (languageTypeSpan) {
@@ -765,7 +816,7 @@ export default {
               this.messageList[upIndex].contentHtml = marked.parse(
                 nowData + partialResponse.replace("DONE", "")
               );
-              this.finishAnser(upIndex);
+              this.finishAnser(upIndex, 1);
               flag = false;
               break;
             } else {
@@ -777,7 +828,7 @@ export default {
                 this.messageList[upIndex].contentHtml = marked.parse(
                   nowData + partialResponseNew
                 );
-                this.finishAnser(upIndex);
+                this.finishAnser(upIndex, 2);
                 flag = false;
                 break;
               } else {
@@ -792,12 +843,12 @@ export default {
           }
           if (done) {
             flag = false;
-            this.finishAnser(upIndex);
+            this.finishAnser(upIndex, 1);
             break;
           }
         }
       } catch (error) {
-        this.finishAnser(upIndex);
+        this.finishAnser(upIndex, 2);
       }
     },
     stopAllAnswer() {
@@ -805,8 +856,8 @@ export default {
       const index = this.messageList.length - 1;
       this.finishAnser(index);
     },
-    finishAnser(upIndex) {
-      this.messageList[upIndex].status = true;
+    finishAnser(upIndex, type) {
+      this.messageList[upIndex].status = type ? type : 1;
       this.addMessage(this.historyListId, this.messageList[upIndex], upIndex);
       this.isAnswer = false;
       this.abortController.abort();
@@ -911,10 +962,10 @@ export default {
         word-wrap: break-word;
         background: #2e2f30;
       }
-      ul li:nth-of-type(even) {
-        background: #01070e;
-        color: inherit;
-      }
+      //ul li:nth-of-type(even) {
+      //  background: #01070e;
+      //  color: inherit;
+      //}
     }
   }
   .menu-block {
